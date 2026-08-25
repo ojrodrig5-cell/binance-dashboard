@@ -1,20 +1,20 @@
 """
-Binance Top Losers Tracker (FUTUROS USDⓈ-M)
+Binance Top Gainers Tracker (FUTUROS USDⓈ-M)
 -----------------------------------------------
 Consulta la API pública de Binance Futures (no requiere login ni API key),
-obtiene los contratos perpetuos con MAYOR CAÍDA % en las últimas 24h,
+obtiene los contratos perpetuos con mayor % de ganancia en las últimas 24h,
 guarda un registro en Excel cada vez que se ejecuta, y genera
-una gráfica con la evolución de cada moneda.
+una gráfica con la evolución del top gainer.
 
 Requisitos:
     pip install requests openpyxl matplotlib plyer
 
 Uso:
-    python binance_tracker_perdedores.py
+    python binance_tracker.py
 
-Se recomienda programar este script para correr cada hora (o cada 5 min
-en pruebas) usando el Programador de tareas de Windows (Task Scheduler).
-Instrucciones al final de este archivo.
+Se recomienda programar este script para correr cada hora usando
+el Programador de tareas de Windows (Task Scheduler). Instrucciones
+al final de este archivo.
 """
 
 import requests
@@ -29,12 +29,12 @@ import shutil
 import subprocess
 
 # ----------------------- CONFIGURACIÓN -----------------------
-EXCEL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "binance_futures_perdedores.xlsx")
-TOP_N = 15                     # cuántos contratos "perdedores" guardar cada corrida
+EXCEL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "binance_futures_gainers.xlsx")
+TOP_N = 15                     # cuántos contratos "ganadores" guardar cada corrida
 MIN_VOLUME_USDT = 1_000_000    # filtro para evitar contratos ilíquidos/ruido
 QUOTE_ASSET = "USDT"           # solo pares contra USDT (mercado USDⓈ-M)
 MERCADO = "futuros"            # "futuros" o "spot"
-DIRECCION = "descendente"      # "ascendente" (ganadoras) o "descendente" (perdedoras)
+DIRECCION = "ascendente"       # "ascendente" (ganadoras) o "descendente" (perdedoras)
 
 # --- Detección de racha sostenida (para alertas y el ícono 🔥 del dashboard) ---
 VENTANA_RACHA = 3              # cuántas corridas seguidas debe subir (o bajar) para calificar
@@ -49,10 +49,14 @@ VENTANA_DASHBOARD_DIAS = 4     # cuántos días mostrar en el gráfico/análisis
 MAX_PUNTOS_GRAFICO = 200       # máximo de puntos por línea en el gráfico (reduce puntos si hay
                                 # más historial denso del que el navegador puede dibujar fluido)
 
+# --- Alertas por Telegram cuando se detecta una racha sostenida ---
+TELEGRAM_BOT_TOKEN = "8831860371:AAE8scHsUzP35JjAJKleuG22y-2a01jQ3iM"
+TELEGRAM_CHAT_ID = "1564425184"
+
 # --- Publicación automática en GitHub Pages (dashboard accesible online) ---
 PUBLICAR_EN_GITHUB = True
 REPO_GITHUB_CARPETA = r"C:\BinanceTracker\github-repo\binance-dashboard"  # carpeta del "git clone" (solo se usa en modo local)
-REPO_GITHUB_NOMBRE_ARCHIVO = "perdedores.html"  # nombre del archivo dentro del repo (URL pública)
+REPO_GITHUB_NOMBRE_ARCHIVO = "gainers.html"  # nombre del archivo dentro del repo (URL pública)
 
 
 # --- Umbral para resaltar un funding rate "extremo" en el análisis (en %) ---
@@ -179,7 +183,6 @@ def reducir_puntos(lista, maximo):
     if reducida[-1] != lista[-1]:
         reducida.append(lista[-1])
     return reducida
-# ---------------------------------------------------------------
 
 
 def obtener_funding_rates():
@@ -203,8 +206,8 @@ def obtener_funding_rates():
         return {}
 
 
-def obtener_top_perdedoras():
-    """Consulta la API pública de Binance Futures y devuelve el top N por MAYOR CAÍDA % en 24h."""
+def obtener_top_ganadoras():
+    """Consulta la API pública de Binance Futures y devuelve el top N por % de cambio en 24h."""
     if MERCADO == "futuros":
         url = "https://fapi.binance.com/fapi/v1/ticker/24hr"
     else:
@@ -233,7 +236,7 @@ def obtener_top_perdedoras():
             "volumen": volumen,
         })
 
-    candidatos.sort(key=lambda x: x["cambio_pct"])  # ascendente: la mayor caída primero
+    candidatos.sort(key=lambda x: x["cambio_pct"], reverse=True)
     return candidatos[:TOP_N]
 
 
@@ -266,7 +269,7 @@ def limpiar_historial_antiguo(wb, ws):
     return ws_nueva
 
 
-def guardar_en_excel(top_perdedoras):
+def guardar_en_excel(top_ganadoras):
     """Añade una fila por cada moneda del top, con timestamp, y actualiza la gráfica."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -289,7 +292,7 @@ def guardar_en_excel(top_perdedoras):
     # Una sola consulta de funding rate por corrida, reutilizada también en el dashboard
     funding_dict = obtener_funding_rates()
 
-    for moneda in top_perdedoras:
+    for moneda in top_ganadoras:
         funding = funding_dict.get(moneda["symbol"])
         ws.append([
             timestamp,
@@ -326,7 +329,7 @@ def guardar_en_excel(top_perdedoras):
         return
 
     generar_dashboard_html(wb, ws)
-    print(f"[{timestamp}] Guardadas {len(top_perdedoras)} monedas en {EXCEL_FILE}")
+    print(f"[{timestamp}] Guardadas {len(top_ganadoras)} monedas en {EXCEL_FILE}")
 
 
 def leer_tabla_agrupada(ws):
@@ -416,6 +419,32 @@ def enviar_notificacion_windows(calificados):
         print(f"No se pudo mostrar la notificación de Windows: {e}")
 
 
+def enviar_notificacion_telegram(calificados):
+    """Manda un mensaje al chat de Telegram configurado (TELEGRAM_BOT_TOKEN /
+    TELEGRAM_CHAT_ID) si hay monedas en racha. No interrumpe el script si
+    falla (ej. sin internet, token inválido): solo lo avisa por consola."""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+
+    verbo = "subiendo" if DIRECCION == "ascendente" else "cayendo"
+    lineas = [f"🔥 *Racha detectada* ({verbo} fuerte, {VENTANA_RACHA} corridas seguidas):", ""]
+    for item in calificados:
+        lineas.append(f"• *{item['symbol']}*: {item['delta_total']:+.2f} p.p.")
+    mensaje = "\n".join(lineas)
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    try:
+        resp = requests.post(url, json={
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": mensaje,
+            "parse_mode": "Markdown",
+        }, timeout=15)
+        if not resp.ok:
+            print(f"Aviso: Telegram respondió con error al enviar la alerta: {resp.text}")
+    except Exception as e:
+        print(f"Aviso: no se pudo enviar la alerta a Telegram: {e}")
+
+
 def procesar_alertas(wb, tabla, timestamps_ordenados, simbolos_vistos):
     """Detecta rachas sostenidas, las registra en la hoja 'Alertas' (que se
     conserva entre corridas, a diferencia de Pivot/Aceleración/Gráfica/Selector
@@ -445,6 +474,7 @@ def procesar_alertas(wb, tabla, timestamps_ordenados, simbolos_vistos):
               f"total {item['delta_total']:+} p.p.)")
 
     enviar_notificacion_windows(calificados)
+    enviar_notificacion_telegram(calificados)
 
 
 def construir_pivot(wb, ws):
@@ -510,7 +540,7 @@ def construir_aceleracion(wb, hoja_pivot, num_filas, num_simbolos):
         delta = round(actual - anterior, 2)
         filas_calculadas.append((symbol, anterior, actual, delta))
 
-    filas_calculadas.sort(key=lambda x: x[3])  # ascendente: la caída más fuerte (más negativa) primero
+    filas_calculadas.sort(key=lambda x: x[3], reverse=True)
 
     encabezado = ["Symbol", "% Anterior", "% Actual", "Aceleración (p.p. desde última corrida)"]
     hoja_acel.append(encabezado)
@@ -743,7 +773,6 @@ def generar_dashboard_html(wb, ws):
 
         # Funding rate: valor + tendencia (comparando contra unas corridas atrás)
         funding_extremo = funding is not None and abs(funding) >= UMBRAL_FUNDING_ALERTA
-
         fundings_recientes = [
             tabla_funding.get(ts, {}).get(symbol) for ts in timestamps_ordenados[-VENTANA_RACHA:]
         ]
@@ -968,7 +997,7 @@ def generar_dashboard_html(wb, ws):
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Binance Futures - Top Perdedoras (Dashboard)</title>
+<title>Binance Futures - Top Ganadoras (Dashboard)</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
     body {{ font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }}
@@ -1013,7 +1042,7 @@ def generar_dashboard_html(wb, ws):
 </style>
 </head>
 <body>
-<h2>Binance Futures — % Cambio 24h por moneda (Perdedoras)</h2>
+<h2>Binance Futures — % Cambio 24h por moneda</h2>
 <p>Mostrando los últimos {VENTANA_DASHBOARD_DIAS} días. Pasa el mouse sobre una línea para resaltarla y ver a qué moneda corresponde. Clic en una etiqueta de abajo para mostrarla/ocultarla; clic en el 🎯 para ver solo esa moneda. Por defecto solo se muestran las del top actual o en racha. 🔥 = lleva {VENTANA_RACHA} corridas seguidas moviéndose fuerte y sostenido en la misma dirección. Última actualización: {timestamps_ordenados[-1]}</p>
 <div class="tabs">
     <button class="tab-btn active" onclick="mostrarTab('grafico', this)">📈 Gráfico</button>
@@ -1218,39 +1247,35 @@ def publicar_en_github(html_path_local):
 
 
 def main():
-    top_perdedoras = obtener_top_perdedoras()
-    if not top_perdedoras:
+    top_ganadoras = obtener_top_ganadoras()
+    if not top_ganadoras:
         print("No se encontraron datos (revisa tu conexión o los filtros de volumen).")
         return
-    guardar_en_excel(top_perdedoras)
+    guardar_en_excel(top_ganadoras)
 
 
 if __name__ == "__main__":
     main()
 
 # ============================================================
-# CÓMO PROGRAMARLO EN WINDOWS (Task Scheduler)
+# CÓMO PROGRAMARLO CADA HORA EN WINDOWS (Task Scheduler)
 # ============================================================
-# Ya tienes Python instalado y la mayoría de librerías, así que solo falta:
-# 1. Abre CMD y corre (para la notificación de racha):
-#       pip install plyer
-# 2. Guarda este archivo en la MISMA carpeta que el de ganadoras:
-#       C:\BinanceTracker\binance_tracker_perdedores.py
-# 3. Abre "Programador de tareas" (Task Scheduler) en Windows.
-# 4. Crear tarea básica:
-#       - Nombre: Binance Tracker Perdedoras
-#       - Desencadenador: Diariamente, repetir cada 5 minutos
-#         (o 1 hora cuando termines de probar)
+# 1. Instala Python (python.org) si no lo tienes, y marca
+#    "Add Python to PATH" durante la instalación.
+# 2. Abre CMD y corre:
+#       pip install requests openpyxl matplotlib
+# 3. Guarda este archivo en una carpeta fija, ej:
+#       C:\BinanceTracker\binance_tracker.py
+# 4. Abre "Programador de tareas" (Task Scheduler) en Windows.
+# 5. Crear tarea básica:
+#       - Nombre: Binance Tracker
+#       - Desencadenador: Diariamente, repetir cada 1 hora,
+#         durante 24 horas (o el rango que quieras)
 #       - Acción: Iniciar un programa
-#           Programa: (usa la ruta completa a python.exe, la que
-#                      te dio "where python", igual que en la tarea
-#                      de ganadoras)
-#           Argumentos: "C:\BinanceTracker\binance_tracker_perdedores.py"
+#           Programa: python
+#           Argumentos: "C:\BinanceTracker\binance_tracker.py"
 #           Iniciar en: C:\BinanceTracker
-#       - Pestaña Configuración: "Aplicar la siguiente regla si la
-#         tarea ya está en ejecución" → "Poner en cola una instancia
-#         nueva" (evita que se trabe si una corrida tarda más de lo normal)
-# 5. Guarda. El archivo binance_futures_perdedores.xlsx y el
-#    binance_dashboard_perdedores.html se irán generando en la
-#    misma carpeta, sin chocar con los archivos de ganadoras.
+# 6. Guarda. El archivo binance_gainers.xlsx se irá actualizando
+#    solo cada hora, con una hoja "Grafica" que se regenera
+#    automáticamente en cada corrida.
 # ============================================================
