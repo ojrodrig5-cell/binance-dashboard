@@ -49,6 +49,10 @@ VENTANA_DASHBOARD_DIAS = 4     # cuántos días mostrar en el gráfico/análisis
 MAX_PUNTOS_GRAFICO = 200       # máximo de puntos por línea en el gráfico (reduce puntos si hay
                                 # más historial denso del que el navegador puede dibujar fluido)
 
+# --- Alertas por Telegram cuando se detecta una racha sostenida ---
+TELEGRAM_BOT_TOKEN = "8831860371:AAE8scHsUzP35JjAJKleuG22y-2a01jQ3iM"
+TELEGRAM_CHAT_ID = "1564425184"
+
 # --- Publicación automática en GitHub Pages (dashboard accesible online) ---
 PUBLICAR_EN_GITHUB = True
 REPO_GITHUB_CARPETA = r"C:\BinanceTracker\github-repo\binance-dashboard"  # carpeta del "git clone" (solo se usa en modo local)
@@ -416,6 +420,32 @@ def enviar_notificacion_windows(calificados):
         print(f"No se pudo mostrar la notificación de Windows: {e}")
 
 
+def enviar_notificacion_telegram(calificados):
+    """Manda un mensaje al chat de Telegram configurado (TELEGRAM_BOT_TOKEN /
+    TELEGRAM_CHAT_ID) si hay monedas en racha. No interrumpe el script si
+    falla (ej. sin internet, token inválido): solo lo avisa por consola."""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+
+    verbo = "subiendo" if DIRECCION == "ascendente" else "cayendo"
+    lineas = [f"🔥 *Racha detectada* ({verbo} fuerte, {VENTANA_RACHA} corridas seguidas):", ""]
+    for item in calificados:
+        lineas.append(f"• *{item['symbol']}*: {item['delta_total']:+.2f} p.p.")
+    mensaje = "\n".join(lineas)
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    try:
+        resp = requests.post(url, json={
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": mensaje,
+            "parse_mode": "Markdown",
+        }, timeout=15)
+        if not resp.ok:
+            print(f"Aviso: Telegram respondió con error al enviar la alerta: {resp.text}")
+    except Exception as e:
+        print(f"Aviso: no se pudo enviar la alerta a Telegram: {e}")
+
+
 def procesar_alertas(wb, tabla, timestamps_ordenados, simbolos_vistos):
     """Detecta rachas sostenidas, las registra en la hoja 'Alertas' (que se
     conserva entre corridas, a diferencia de Pivot/Aceleración/Gráfica/Selector
@@ -445,6 +475,7 @@ def procesar_alertas(wb, tabla, timestamps_ordenados, simbolos_vistos):
               f"total {item['delta_total']:+} p.p.)")
 
     enviar_notificacion_windows(calificados)
+    enviar_notificacion_telegram(calificados)
 
 
 def construir_pivot(wb, ws):
