@@ -1,20 +1,20 @@
 """
-Binance Top Gainers Tracker (FUTUROS USDⓈ-M)
+Binance Top Losers Tracker (FUTUROS USDⓈ-M)
 -----------------------------------------------
 Consulta la API pública de Binance Futures (no requiere login ni API key),
-obtiene los contratos perpetuos con mayor % de ganancia en las últimas 24h,
+obtiene los contratos perpetuos con MAYOR CAÍDA % en las últimas 24h,
 guarda un registro en Excel cada vez que se ejecuta, y genera
-una gráfica con la evolución del top gainer.
+una gráfica con la evolución de cada moneda.
 
 Requisitos:
     pip install requests openpyxl matplotlib plyer
 
 Uso:
-    python binance_tracker.py
+    python binance_tracker_perdedores.py
 
-Se recomienda programar este script para correr cada hora usando
-el Programador de tareas de Windows (Task Scheduler). Instrucciones
-al final de este archivo.
+Se recomienda programar este script para correr cada hora (o cada 5 min
+en pruebas) usando el Programador de tareas de Windows (Task Scheduler).
+Instrucciones al final de este archivo.
 """
 
 import requests
@@ -29,12 +29,12 @@ import shutil
 import subprocess
 
 # ----------------------- CONFIGURACIÓN -----------------------
-EXCEL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "binance_futures_gainers.xlsx")
-TOP_N = 15                     # cuántos contratos "ganadores" guardar cada corrida
+EXCEL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "binance_futures_perdedores.xlsx")
+TOP_N = 15                     # cuántos contratos "perdedores" guardar cada corrida
 MIN_VOLUME_USDT = 1_000_000    # filtro para evitar contratos ilíquidos/ruido
 QUOTE_ASSET = "USDT"           # solo pares contra USDT (mercado USDⓈ-M)
 MERCADO = "futuros"            # "futuros" o "spot"
-DIRECCION = "ascendente"       # "ascendente" (ganadoras) o "descendente" (perdedoras)
+DIRECCION = "descendente"      # "ascendente" (ganadoras) o "descendente" (perdedoras)
 
 # --- Detección de racha sostenida (para alertas y el ícono 🔥 del dashboard) ---
 VENTANA_RACHA = 3              # cuántas corridas seguidas debe subir (o bajar) para calificar
@@ -42,12 +42,17 @@ UMBRAL_RACHA = 8.0             # cambio mínimo acumulado en esa ventana, en pun
 
 # --- Retención de historial: evita que el Excel crezca sin límite si el
 # script corre 24/7 de forma indefinida (clave para correr en la nube) ---
-RETENCION_DIAS_HISTORIAL = 30  # cuántos días de historial conservar en "Datos"
+RETENCION_DIAS_HISTORIAL = 30  # cuántos días de historial conservar en "Datos" (Excel completo)
+VENTANA_DASHBOARD_DIAS = 4     # cuántos días mostrar en el gráfico/análisis del dashboard web
+                                # (mucho menor que la retención, para que el gráfico no se sature
+                                # ni se ponga lento con meses de monedas acumuladas)
+MAX_PUNTOS_GRAFICO = 200       # máximo de puntos por línea en el gráfico (reduce puntos si hay
+                                # más historial denso del que el navegador puede dibujar fluido)
 
 # --- Publicación automática en GitHub Pages (dashboard accesible online) ---
 PUBLICAR_EN_GITHUB = True
 REPO_GITHUB_CARPETA = r"C:\BinanceTracker\github-repo\binance-dashboard"  # carpeta del "git clone" (solo se usa en modo local)
-REPO_GITHUB_NOMBRE_ARCHIVO = "gainers.html"  # nombre del archivo dentro del repo (URL pública)
+REPO_GITHUB_NOMBRE_ARCHIVO = "perdedores.html"  # nombre del archivo dentro del repo (URL pública)
 
 
 # --- Umbral para resaltar un funding rate "extremo" en el análisis (en %) ---
@@ -160,6 +165,23 @@ def formatear_precio(valor):
         return f"${valor:.8f}"
 
 
+def reducir_puntos(lista, maximo):
+    """Reduce una lista de timestamps a un máximo de puntos, tomando uno cada
+    N (sin perder el más reciente). Esto es solo para lo que se DIBUJA en el
+    gráfico — no afecta ningún cálculo del análisis, que sigue usando los
+    datos completos. Necesario porque meses de historial denso (por ejemplo
+    de cuando corría cada 5 minutos) pueden tener miles de puntos por línea,
+    lo cual pone lento al navegador al interactuar con el gráfico."""
+    if len(lista) <= maximo:
+        return lista
+    paso = (len(lista) + maximo - 1) // maximo  # equivalente a ceil(len/maximo)
+    reducida = lista[::paso]
+    if reducida[-1] != lista[-1]:
+        reducida.append(lista[-1])
+    return reducida
+# ---------------------------------------------------------------
+
+
 def obtener_funding_rates():
     """Consulta la API pública de Binance Futures y devuelve el funding rate
     actual de TODOS los contratos perpetuos en una sola llamada: {symbol: %}.
@@ -181,8 +203,8 @@ def obtener_funding_rates():
         return {}
 
 
-def obtener_top_ganadoras():
-    """Consulta la API pública de Binance Futures y devuelve el top N por % de cambio en 24h."""
+def obtener_top_perdedoras():
+    """Consulta la API pública de Binance Futures y devuelve el top N por MAYOR CAÍDA % en 24h."""
     if MERCADO == "futuros":
         url = "https://fapi.binance.com/fapi/v1/ticker/24hr"
     else:
@@ -211,7 +233,7 @@ def obtener_top_ganadoras():
             "volumen": volumen,
         })
 
-    candidatos.sort(key=lambda x: x["cambio_pct"], reverse=True)
+    candidatos.sort(key=lambda x: x["cambio_pct"])  # ascendente: la mayor caída primero
     return candidatos[:TOP_N]
 
 
@@ -244,7 +266,7 @@ def limpiar_historial_antiguo(wb, ws):
     return ws_nueva
 
 
-def guardar_en_excel(top_ganadoras):
+def guardar_en_excel(top_perdedoras):
     """Añade una fila por cada moneda del top, con timestamp, y actualiza la gráfica."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -267,7 +289,7 @@ def guardar_en_excel(top_ganadoras):
     # Una sola consulta de funding rate por corrida, reutilizada también en el dashboard
     funding_dict = obtener_funding_rates()
 
-    for moneda in top_ganadoras:
+    for moneda in top_perdedoras:
         funding = funding_dict.get(moneda["symbol"])
         ws.append([
             timestamp,
@@ -304,7 +326,7 @@ def guardar_en_excel(top_ganadoras):
         return
 
     generar_dashboard_html(wb, ws)
-    print(f"[{timestamp}] Guardadas {len(top_ganadoras)} monedas en {EXCEL_FILE}")
+    print(f"[{timestamp}] Guardadas {len(top_perdedoras)} monedas en {EXCEL_FILE}")
 
 
 def leer_tabla_agrupada(ws):
@@ -488,7 +510,7 @@ def construir_aceleracion(wb, hoja_pivot, num_filas, num_simbolos):
         delta = round(actual - anterior, 2)
         filas_calculadas.append((symbol, anterior, actual, delta))
 
-    filas_calculadas.sort(key=lambda x: x[3], reverse=True)
+    filas_calculadas.sort(key=lambda x: x[3])  # ascendente: la caída más fuerte (más negativa) primero
 
     encabezado = ["Symbol", "% Anterior", "% Actual", "Aceleración (p.p. desde última corrida)"]
     hoja_acel.append(encabezado)
@@ -626,6 +648,22 @@ def generar_dashboard_html(wb, ws):
     if not timestamps_ordenados:
         return
 
+    # Limitar el dashboard a los últimos VENTANA_DASHBOARD_DIAS días. El Excel
+    # conserva hasta RETENCION_DIAS_HISTORIAL días completos, pero mostrar todo
+    # eso en el gráfico web (con meses de monedas acumuladas) lo satura y pone
+    # lento al navegador al buscar/pasar el mouse. Esto no afecta el Excel.
+    limite_dashboard = datetime.now() - timedelta(days=VENTANA_DASHBOARD_DIAS)
+    timestamps_ordenados = [
+        ts for ts in timestamps_ordenados
+        if datetime.strptime(ts, "%Y-%m-%d %H:%M:%S") >= limite_dashboard
+    ]
+    if not timestamps_ordenados:
+        return
+    simbolos_vistos = [
+        s for s in simbolos_vistos
+        if any(tabla[ts].get(s) is not None for ts in timestamps_ordenados)
+    ]
+
     calificados = calcular_rachas(tabla, timestamps_ordenados, simbolos_vistos)
     simbolos_en_racha = {item["symbol"] for item in calificados}
 
@@ -705,6 +743,7 @@ def generar_dashboard_html(wb, ws):
 
         # Funding rate: valor + tendencia (comparando contra unas corridas atrás)
         funding_extremo = funding is not None and abs(funding) >= UMBRAL_FUNDING_ALERTA
+
         fundings_recientes = [
             tabla_funding.get(ts, {}).get(symbol) for ts in timestamps_ordenados[-VENTANA_RACHA:]
         ]
@@ -830,7 +869,7 @@ def generar_dashboard_html(wb, ws):
         <br>• <b>Spread</b>: separación entre el mejor precio de compra y venta ahora mismo — más ajustado (bajo) = mercado más líquido y eficiente para entrar/salir.
         <br>• <b>Presión Compra/Venta</b>: del libro de órdenes actual — positivo (verde) significa más volumen esperando comprar; negativo (rojo) más volumen esperando vender. Resaltado cuando contradice la dirección del movimiento.
         <br>• <b>Volatilidad reciente</b>: rango entre el % más alto y más bajo de las últimas corridas — más alto = movimiento más "picado".
-        <br>• <b>Extremo del período</b>: el % actual es el más alto/bajo que has registrado desde que empezaste a trackear esta moneda.
+        <br>• <b>Extremo del período</b>: el % actual es el más alto/bajo de los últimos {VENTANA_DASHBOARD_DIAS} días mostrados en el gráfico.
         <br>• <b>Veredicto</b>: combina todo lo anterior en una lectura simple. Pasa el mouse sobre él para ver el motivo exacto.</p>
         <div class="alertas-caja">
             <table><thead><tr><th>Moneda</th><th>% Actual</th><th>Volumen 24h</th><th>Funding Rate</th><th>RSI</th><th>Tendencia</th><th>Nivel clave</th><th>Soporte</th><th>Resistencia</th><th>Spread</th><th>Presión C/V</th><th>Volatilidad</th><th>Extremo</th><th>Veredicto</th></tr></thead>
@@ -886,12 +925,16 @@ def generar_dashboard_html(wb, ws):
     }
     simbolos_relevantes = simbolos_top_actual | simbolos_en_racha
 
+    # Puntos reducidos solo para dibujar el gráfico (el análisis y los chips
+    # siguen usando timestamps_ordenados completo, sin reducir)
+    timestamps_grafico = reducir_puntos(timestamps_ordenados, MAX_PUNTOS_GRAFICO)
+
     datasets_js = []
     chips_html = []
     for i, symbol in enumerate(simbolos_vistos):
         hue = (i * 47) % 360  # separa bien los colores aunque haya muchas monedas
         color = f"hsl({hue}, 70%, 45%)"
-        valores = [tabla[ts].get(symbol, "null") for ts in timestamps_ordenados]
+        valores = [tabla[ts].get(symbol, "null") for ts in timestamps_grafico]
         valores_js = "[" + ",".join("null" if v == "null" else str(v) for v in valores) + "]"
         etiqueta = f"🔥 {symbol}" if symbol in simbolos_en_racha else symbol
         oculto_inicial = "true" if symbol not in simbolos_relevantes else "false"
@@ -917,7 +960,7 @@ def generar_dashboard_html(wb, ws):
             f'title="Ver solo esta moneda">🎯</button></span>'
         )
 
-    labels_js = "[" + ",".join(f'"{ts}"' for ts in timestamps_ordenados) + "]"
+    labels_js = "[" + ",".join(f'"{ts}"' for ts in timestamps_grafico) + "]"
     datasets_str = ",\n".join(datasets_js)
     chips_str = "".join(chips_html)
 
@@ -925,7 +968,7 @@ def generar_dashboard_html(wb, ws):
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Binance Futures - Top Ganadoras (Dashboard)</title>
+<title>Binance Futures - Top Perdedoras (Dashboard)</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
     body {{ font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }}
@@ -970,8 +1013,8 @@ def generar_dashboard_html(wb, ws):
 </style>
 </head>
 <body>
-<h2>Binance Futures — % Cambio 24h por moneda</h2>
-<p>Pasa el mouse sobre una línea para resaltarla y ver a qué moneda corresponde. Clic en una etiqueta de abajo para mostrarla/ocultarla; clic en el 🎯 para ver solo esa moneda. Por defecto solo se muestran las del top actual o en racha. 🔥 = lleva {VENTANA_RACHA} corridas seguidas moviéndose fuerte y sostenido en la misma dirección. Última actualización: {timestamps_ordenados[-1]}</p>
+<h2>Binance Futures — % Cambio 24h por moneda (Perdedoras)</h2>
+<p>Mostrando los últimos {VENTANA_DASHBOARD_DIAS} días. Pasa el mouse sobre una línea para resaltarla y ver a qué moneda corresponde. Clic en una etiqueta de abajo para mostrarla/ocultarla; clic en el 🎯 para ver solo esa moneda. Por defecto solo se muestran las del top actual o en racha. 🔥 = lleva {VENTANA_RACHA} corridas seguidas moviéndose fuerte y sostenido en la misma dirección. Última actualización: {timestamps_ordenados[-1]}</p>
 <div class="tabs">
     <button class="tab-btn active" onclick="mostrarTab('grafico', this)">📈 Gráfico</button>
     <button class="tab-btn" onclick="mostrarTab('alertas', this)">🔔 Alertas{f' ({len(calificados)})' if calificados else ''}</button>
@@ -979,7 +1022,7 @@ def generar_dashboard_html(wb, ws):
 </div>
 <div id="tab-grafico" class="tab-content active">
     <div class="buscador-caja">
-        <input type="text" id="buscadorMoneda" placeholder="🔍 Buscar moneda..." oninput="filtrarChips()">
+        <input type="text" id="buscadorMoneda" placeholder="🔍 Buscar moneda..." oninput="filtrarChipsDebounced()">
     </div>
     <div class="leyenda-acciones">
         <button class="btn-mostrar-todas" onclick="mostrarTodas()">Mostrar todas</button>
@@ -1005,6 +1048,7 @@ function mostrarTab(nombre, boton) {{
     boton.classList.add('active');
 }}
 const ctx = document.getElementById('grafico').getContext('2d');
+let ultimoHoverIdx = undefined;
 const miChart = new Chart(ctx, {{
     type: 'line',
     data: {{
@@ -1015,9 +1059,12 @@ const miChart = new Chart(ctx, {{
     }},
     options: {{
         responsive: true,
+        animation: false,
         interaction: {{ mode: 'nearest', intersect: false }},
         onHover: (event, activeElements, chart) => {{
             const idx = activeElements.length ? activeElements[0].datasetIndex : null;
+            if (idx === ultimoHoverIdx) return;  // evita redibujar si sigue sobre la misma línea
+            ultimoHoverIdx = idx;
             chart.data.datasets.forEach((ds, i) => {{
                 ds.borderWidth = (idx === null) ? 2 : (i === idx ? 4 : 1);
             }});
@@ -1095,6 +1142,14 @@ function filtrarChips() {{
         aislarMoneda(idx);
     }}
 }}
+
+let buscadorTimeoutId = null;
+function filtrarChipsDebounced() {{
+    // espera un instante corto después de dejar de escribir antes de filtrar,
+    // para no recalcular/redibujar en cada tecla mientras se escribe rápido
+    clearTimeout(buscadorTimeoutId);
+    buscadorTimeoutId = setTimeout(filtrarChips, 200);
+}}
 </script>
 </body>
 </html>
@@ -1163,35 +1218,39 @@ def publicar_en_github(html_path_local):
 
 
 def main():
-    top_ganadoras = obtener_top_ganadoras()
-    if not top_ganadoras:
+    top_perdedoras = obtener_top_perdedoras()
+    if not top_perdedoras:
         print("No se encontraron datos (revisa tu conexión o los filtros de volumen).")
         return
-    guardar_en_excel(top_ganadoras)
+    guardar_en_excel(top_perdedoras)
 
 
 if __name__ == "__main__":
     main()
 
 # ============================================================
-# CÓMO PROGRAMARLO CADA HORA EN WINDOWS (Task Scheduler)
+# CÓMO PROGRAMARLO EN WINDOWS (Task Scheduler)
 # ============================================================
-# 1. Instala Python (python.org) si no lo tienes, y marca
-#    "Add Python to PATH" durante la instalación.
-# 2. Abre CMD y corre:
-#       pip install requests openpyxl matplotlib
-# 3. Guarda este archivo en una carpeta fija, ej:
-#       C:\BinanceTracker\binance_tracker.py
-# 4. Abre "Programador de tareas" (Task Scheduler) en Windows.
-# 5. Crear tarea básica:
-#       - Nombre: Binance Tracker
-#       - Desencadenador: Diariamente, repetir cada 1 hora,
-#         durante 24 horas (o el rango que quieras)
+# Ya tienes Python instalado y la mayoría de librerías, así que solo falta:
+# 1. Abre CMD y corre (para la notificación de racha):
+#       pip install plyer
+# 2. Guarda este archivo en la MISMA carpeta que el de ganadoras:
+#       C:\BinanceTracker\binance_tracker_perdedores.py
+# 3. Abre "Programador de tareas" (Task Scheduler) en Windows.
+# 4. Crear tarea básica:
+#       - Nombre: Binance Tracker Perdedoras
+#       - Desencadenador: Diariamente, repetir cada 5 minutos
+#         (o 1 hora cuando termines de probar)
 #       - Acción: Iniciar un programa
-#           Programa: python
-#           Argumentos: "C:\BinanceTracker\binance_tracker.py"
+#           Programa: (usa la ruta completa a python.exe, la que
+#                      te dio "where python", igual que en la tarea
+#                      de ganadoras)
+#           Argumentos: "C:\BinanceTracker\binance_tracker_perdedores.py"
 #           Iniciar en: C:\BinanceTracker
-# 6. Guarda. El archivo binance_gainers.xlsx se irá actualizando
-#    solo cada hora, con una hoja "Grafica" que se regenera
-#    automáticamente en cada corrida.
+#       - Pestaña Configuración: "Aplicar la siguiente regla si la
+#         tarea ya está en ejecución" → "Poner en cola una instancia
+#         nueva" (evita que se trabe si una corrida tarda más de lo normal)
+# 5. Guarda. El archivo binance_futures_perdedores.xlsx y el
+#    binance_dashboard_perdedores.html se irán generando en la
+#    misma carpeta, sin chocar con los archivos de ganadoras.
 # ============================================================

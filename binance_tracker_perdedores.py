@@ -42,7 +42,12 @@ UMBRAL_RACHA = 8.0             # cambio mínimo acumulado en esa ventana, en pun
 
 # --- Retención de historial: evita que el Excel crezca sin límite si el
 # script corre 24/7 de forma indefinida (clave para correr en la nube) ---
-RETENCION_DIAS_HISTORIAL = 30  # cuántos días de historial conservar en "Datos"
+RETENCION_DIAS_HISTORIAL = 30  # cuántos días de historial conservar en "Datos" (Excel completo)
+VENTANA_DASHBOARD_DIAS = 4     # cuántos días mostrar en el gráfico/análisis del dashboard web
+                                # (mucho menor que la retención, para que el gráfico no se sature
+                                # ni se ponga lento con meses de monedas acumuladas)
+MAX_PUNTOS_GRAFICO = 200       # máximo de puntos por línea en el gráfico (reduce puntos si hay
+                                # más historial denso del que el navegador puede dibujar fluido)
 
 # --- Publicación automática en GitHub Pages (dashboard accesible online) ---
 PUBLICAR_EN_GITHUB = True
@@ -158,6 +163,22 @@ def formatear_precio(valor):
         return f"${valor:,.4f}"
     else:
         return f"${valor:.8f}"
+
+
+def reducir_puntos(lista, maximo):
+    """Reduce una lista de timestamps a un máximo de puntos, tomando uno cada
+    N (sin perder el más reciente). Esto es solo para lo que se DIBUJA en el
+    gráfico — no afecta ningún cálculo del análisis, que sigue usando los
+    datos completos. Necesario porque meses de historial denso (por ejemplo
+    de cuando corría cada 5 minutos) pueden tener miles de puntos por línea,
+    lo cual pone lento al navegador al interactuar con el gráfico."""
+    if len(lista) <= maximo:
+        return lista
+    paso = (len(lista) + maximo - 1) // maximo  # equivalente a ceil(len/maximo)
+    reducida = lista[::paso]
+    if reducida[-1] != lista[-1]:
+        reducida.append(lista[-1])
+    return reducida
 # ---------------------------------------------------------------
 
 
@@ -627,6 +648,22 @@ def generar_dashboard_html(wb, ws):
     if not timestamps_ordenados:
         return
 
+    # Limitar el dashboard a los últimos VENTANA_DASHBOARD_DIAS días. El Excel
+    # conserva hasta RETENCION_DIAS_HISTORIAL días completos, pero mostrar todo
+    # eso en el gráfico web (con meses de monedas acumuladas) lo satura y pone
+    # lento al navegador al buscar/pasar el mouse. Esto no afecta el Excel.
+    limite_dashboard = datetime.now() - timedelta(days=VENTANA_DASHBOARD_DIAS)
+    timestamps_ordenados = [
+        ts for ts in timestamps_ordenados
+        if datetime.strptime(ts, "%Y-%m-%d %H:%M:%S") >= limite_dashboard
+    ]
+    if not timestamps_ordenados:
+        return
+    simbolos_vistos = [
+        s for s in simbolos_vistos
+        if any(tabla[ts].get(s) is not None for ts in timestamps_ordenados)
+    ]
+
     calificados = calcular_rachas(tabla, timestamps_ordenados, simbolos_vistos)
     simbolos_en_racha = {item["symbol"] for item in calificados}
 
@@ -832,7 +869,7 @@ def generar_dashboard_html(wb, ws):
         <br>• <b>Spread</b>: separación entre el mejor precio de compra y venta ahora mismo — más ajustado (bajo) = mercado más líquido y eficiente para entrar/salir.
         <br>• <b>Presión Compra/Venta</b>: del libro de órdenes actual — positivo (verde) significa más volumen esperando comprar; negativo (rojo) más volumen esperando vender. Resaltado cuando contradice la dirección del movimiento.
         <br>• <b>Volatilidad reciente</b>: rango entre el % más alto y más bajo de las últimas corridas — más alto = movimiento más "picado".
-        <br>• <b>Extremo del período</b>: el % actual es el más alto/bajo que has registrado desde que empezaste a trackear esta moneda.
+        <br>• <b>Extremo del período</b>: el % actual es el más alto/bajo de los últimos {VENTANA_DASHBOARD_DIAS} días mostrados en el gráfico.
         <br>• <b>Veredicto</b>: combina todo lo anterior en una lectura simple. Pasa el mouse sobre él para ver el motivo exacto.</p>
         <div class="alertas-caja">
             <table><thead><tr><th>Moneda</th><th>% Actual</th><th>Volumen 24h</th><th>Funding Rate</th><th>RSI</th><th>Tendencia</th><th>Nivel clave</th><th>Soporte</th><th>Resistencia</th><th>Spread</th><th>Presión C/V</th><th>Volatilidad</th><th>Extremo</th><th>Veredicto</th></tr></thead>
@@ -888,12 +925,16 @@ def generar_dashboard_html(wb, ws):
     }
     simbolos_relevantes = simbolos_top_actual | simbolos_en_racha
 
+    # Puntos reducidos solo para dibujar el gráfico (el análisis y los chips
+    # siguen usando timestamps_ordenados completo, sin reducir)
+    timestamps_grafico = reducir_puntos(timestamps_ordenados, MAX_PUNTOS_GRAFICO)
+
     datasets_js = []
     chips_html = []
     for i, symbol in enumerate(simbolos_vistos):
         hue = (i * 47) % 360  # separa bien los colores aunque haya muchas monedas
         color = f"hsl({hue}, 70%, 45%)"
-        valores = [tabla[ts].get(symbol, "null") for ts in timestamps_ordenados]
+        valores = [tabla[ts].get(symbol, "null") for ts in timestamps_grafico]
         valores_js = "[" + ",".join("null" if v == "null" else str(v) for v in valores) + "]"
         etiqueta = f"🔥 {symbol}" if symbol in simbolos_en_racha else symbol
         oculto_inicial = "true" if symbol not in simbolos_relevantes else "false"
@@ -919,7 +960,7 @@ def generar_dashboard_html(wb, ws):
             f'title="Ver solo esta moneda">🎯</button></span>'
         )
 
-    labels_js = "[" + ",".join(f'"{ts}"' for ts in timestamps_ordenados) + "]"
+    labels_js = "[" + ",".join(f'"{ts}"' for ts in timestamps_grafico) + "]"
     datasets_str = ",\n".join(datasets_js)
     chips_str = "".join(chips_html)
 
@@ -973,7 +1014,7 @@ def generar_dashboard_html(wb, ws):
 </head>
 <body>
 <h2>Binance Futures — % Cambio 24h por moneda (Perdedoras)</h2>
-<p>Pasa el mouse sobre una línea para resaltarla y ver a qué moneda corresponde. Clic en una etiqueta de abajo para mostrarla/ocultarla; clic en el 🎯 para ver solo esa moneda. Por defecto solo se muestran las del top actual o en racha. 🔥 = lleva {VENTANA_RACHA} corridas seguidas moviéndose fuerte y sostenido en la misma dirección. Última actualización: {timestamps_ordenados[-1]}</p>
+<p>Mostrando los últimos {VENTANA_DASHBOARD_DIAS} días. Pasa el mouse sobre una línea para resaltarla y ver a qué moneda corresponde. Clic en una etiqueta de abajo para mostrarla/ocultarla; clic en el 🎯 para ver solo esa moneda. Por defecto solo se muestran las del top actual o en racha. 🔥 = lleva {VENTANA_RACHA} corridas seguidas moviéndose fuerte y sostenido en la misma dirección. Última actualización: {timestamps_ordenados[-1]}</p>
 <div class="tabs">
     <button class="tab-btn active" onclick="mostrarTab('grafico', this)">📈 Gráfico</button>
     <button class="tab-btn" onclick="mostrarTab('alertas', this)">🔔 Alertas{f' ({len(calificados)})' if calificados else ''}</button>
@@ -981,7 +1022,7 @@ def generar_dashboard_html(wb, ws):
 </div>
 <div id="tab-grafico" class="tab-content active">
     <div class="buscador-caja">
-        <input type="text" id="buscadorMoneda" placeholder="🔍 Buscar moneda..." oninput="filtrarChips()">
+        <input type="text" id="buscadorMoneda" placeholder="🔍 Buscar moneda..." oninput="filtrarChipsDebounced()">
     </div>
     <div class="leyenda-acciones">
         <button class="btn-mostrar-todas" onclick="mostrarTodas()">Mostrar todas</button>
@@ -1007,6 +1048,7 @@ function mostrarTab(nombre, boton) {{
     boton.classList.add('active');
 }}
 const ctx = document.getElementById('grafico').getContext('2d');
+let ultimoHoverIdx = undefined;
 const miChart = new Chart(ctx, {{
     type: 'line',
     data: {{
@@ -1017,9 +1059,12 @@ const miChart = new Chart(ctx, {{
     }},
     options: {{
         responsive: true,
+        animation: false,
         interaction: {{ mode: 'nearest', intersect: false }},
         onHover: (event, activeElements, chart) => {{
             const idx = activeElements.length ? activeElements[0].datasetIndex : null;
+            if (idx === ultimoHoverIdx) return;  // evita redibujar si sigue sobre la misma línea
+            ultimoHoverIdx = idx;
             chart.data.datasets.forEach((ds, i) => {{
                 ds.borderWidth = (idx === null) ? 2 : (i === idx ? 4 : 1);
             }});
@@ -1096,6 +1141,14 @@ function filtrarChips() {{
         const idx = parseInt(visibles[0].id.replace('chip-', ''));
         aislarMoneda(idx);
     }}
+}}
+
+let buscadorTimeoutId = null;
+function filtrarChipsDebounced() {{
+    // espera un instante corto después de dejar de escribir antes de filtrar,
+    // para no recalcular/redibujar en cada tecla mientras se escribe rápido
+    clearTimeout(buscadorTimeoutId);
+    buscadorTimeoutId = setTimeout(filtrarChips, 200);
 }}
 </script>
 </body>
