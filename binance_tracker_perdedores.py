@@ -50,8 +50,12 @@ MAX_PUNTOS_GRAFICO = 200       # máximo de puntos por línea en el gráfico (re
                                 # más historial denso del que el navegador puede dibujar fluido)
 
 # --- Alertas por Telegram cuando se detecta una racha sostenida ---
-TELEGRAM_BOT_TOKEN = "8831860371:AAE8scHsUzP35JjAJKleuG22y-2a01jQ3iM"
-TELEGRAM_CHAT_ID = "1564425184"
+# El token y chat_id se leen de variables de entorno (nunca quedan escritos
+# en el código ni se suben a GitHub). Configúralas una vez en Windows con:
+#   setx TELEGRAM_BOT_TOKEN "tu_token_aqui"
+#   setx TELEGRAM_CHAT_ID "tu_chat_id_aqui"
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
 # --- Publicación automática en GitHub Pages (dashboard accesible online) ---
 PUBLICAR_EN_GITHUB = True
