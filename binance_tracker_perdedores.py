@@ -37,7 +37,11 @@ MERCADO = "futuros"            # "futuros" o "spot"
 DIRECCION = "descendente"      # "ascendente" (ganadoras) o "descendente" (perdedoras)
 
 # --- Detección de racha sostenida (para alertas y el ícono 🔥 del dashboard) ---
-VENTANA_RACHA = 3              # cuántas corridas seguidas debe subir (o bajar) para calificar
+# VENTANA_RACHA bajó de 3 a 2 (8-sept-2026): la prueba de continuación mostró
+# que exigir 3 corridas de confirmación no mejora la calidad de la señal —
+# de hecho, el mínimo posible (VENTANA_RACHA=2) dio mejor % de continuación
+# y mejor retorno promedio que exigir 3. Ver test_alerta_temprana.py.
+VENTANA_RACHA = 2              # cuántas corridas seguidas debe subir (o bajar) para calificar
 UMBRAL_RACHA = 8.0             # cambio mínimo acumulado en esa ventana, en puntos porcentuales
 
 # --- Retención de historial: evita que el Excel crezca sin límite si el
@@ -73,6 +77,7 @@ KLINES_CANTIDAD = 100          # ~25 horas de velas de 15 min
 RSI_PERIODO = 14
 SMA_CORTA = 20
 SMA_LARGA = 50
+ATR_PERIODO = 14
 UMBRAL_CERCA_NIVEL = 1.0       # % de distancia para considerar "muy cerca" de soporte/resistencia
 # ---------------------------------------------------------------
 
@@ -122,6 +127,28 @@ def sma(valores, periodo):
     if len(valores) < periodo:
         return None
     return sum(valores[-periodo:]) / periodo
+
+
+def calcular_atr_pct(maximos, minimos, cierres, periodo=ATR_PERIODO):
+    """ATR (método de Wilder) expresado como % del precio actual — así se
+    puede comparar la volatilidad entre monedas de precios muy distintos."""
+    if len(cierres) < periodo + 1:
+        return None
+    trs = []
+    for i in range(1, len(cierres)):
+        tr = max(
+            maximos[i] - minimos[i],
+            abs(maximos[i] - cierres[i - 1]),
+            abs(minimos[i] - cierres[i - 1]),
+        )
+        trs.append(tr)
+    atr = sum(trs[:periodo]) / periodo
+    for i in range(periodo, len(trs)):
+        atr = (atr * (periodo - 1) + trs[i]) / periodo
+    precio_actual = cierres[-1]
+    if not precio_actual:
+        return None
+    return round(atr / precio_actual * 100, 3)
 
 
 def obtener_order_book(symbol, profundidad=20):
@@ -187,7 +214,6 @@ def reducir_puntos(lista, maximo):
     if reducida[-1] != lista[-1]:
         reducida.append(lista[-1])
     return reducida
-# ---------------------------------------------------------------
 
 
 def obtener_funding_rates():
@@ -212,7 +238,11 @@ def obtener_funding_rates():
 
 
 def obtener_top_perdedoras():
-    """Consulta la API pública de Binance Futures y devuelve el top N por MAYOR CAÍDA % en 24h."""
+    """Consulta la API pública de Binance Futures y devuelve (top N por MAYOR
+    CAÍDA % en 24h, dato de BTCUSDT). BTCUSDT se guarda siempre, esté o no en
+    el top, porque se necesita como referencia para el filtro de fuerza
+    relativa (evitar alertar monedas que solo están siguiendo el movimiento
+    general del mercado, no una racha propia)."""
     if MERCADO == "futuros":
         url = "https://fapi.binance.com/fapi/v1/ticker/24hr"
     else:
@@ -222,15 +252,18 @@ def obtener_top_perdedoras():
     data = resp.json()
 
     candidatos = []
+    btc_info = None
     for item in data:
         symbol = item["symbol"]
-        if not symbol.endswith(QUOTE_ASSET):
-            continue
         try:
             cambio_pct = float(item["priceChangePercent"])
             volumen = float(item["quoteVolume"])
             precio = float(item["lastPrice"])
         except (ValueError, KeyError):
+            continue
+        if symbol == "BTCUSDT":
+            btc_info = {"symbol": symbol, "cambio_pct": cambio_pct, "precio": precio, "volumen": volumen}
+        if not symbol.endswith(QUOTE_ASSET):
             continue
         if volumen < MIN_VOLUME_USDT:
             continue
@@ -242,7 +275,7 @@ def obtener_top_perdedoras():
         })
 
     candidatos.sort(key=lambda x: x["cambio_pct"])  # ascendente: la mayor caída primero
-    return candidatos[:TOP_N]
+    return candidatos[:TOP_N], btc_info
 
 
 def limpiar_historial_antiguo(wb, ws):
@@ -274,8 +307,9 @@ def limpiar_historial_antiguo(wb, ws):
     return ws_nueva
 
 
-def guardar_en_excel(top_perdedoras):
-    """Añade una fila por cada moneda del top, con timestamp, y actualiza la gráfica."""
+def guardar_en_excel(top_perdedoras, btc_info=None):
+    """Añade una fila por cada moneda del top (más BTCUSDT como referencia,
+    si no quedó ya incluida), con timestamp, y actualiza la gráfica."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     if os.path.exists(EXCEL_FILE):
@@ -297,7 +331,12 @@ def guardar_en_excel(top_perdedoras):
     # Una sola consulta de funding rate por corrida, reutilizada también en el dashboard
     funding_dict = obtener_funding_rates()
 
-    for moneda in top_perdedoras:
+    monedas_a_guardar = list(top_perdedoras)
+    ya_incluido = any(m["symbol"] == "BTCUSDT" for m in monedas_a_guardar)
+    if btc_info is not None and not ya_incluido:
+        monedas_a_guardar.append(btc_info)
+
+    for moneda in monedas_a_guardar:
         funding = funding_dict.get(moneda["symbol"])
         ws.append([
             timestamp,
@@ -317,7 +356,7 @@ def guardar_en_excel(top_perdedoras):
     for i, ancho in enumerate(anchos, start=1):
         ws.column_dimensions[chr(64 + i)].width = ancho
 
-    actualizar_grafica(wb, ws)
+    actualizar_grafica(wb, ws, funding_dict)
 
     # Guardado atómico: primero a un archivo temporal, y solo si se completa
     # bien, se reemplaza el archivo real. Así, si la laptop se apaga, se
@@ -367,17 +406,36 @@ def leer_tabla_agrupada(ws):
     return tabla, simbolos_vistos, timestamps_ordenados, ultimo_info, tabla_funding
 
 
+# --- Filtro de fuerza relativa vs BTC (nuevo, 8-sept-2026) ---
+# Evita alertar monedas que solo están "subiendo/bajando porque BTC subió/bajó",
+# no por una racha propia. Exige que el movimiento de la moneda supere al de
+# BTC en la misma ventana por al menos este margen (puntos porcentuales).
+USAR_FILTRO_BTC = True
+MARGEN_FUERZA_RELATIVA_BTC = 3.0
+
+
 def calcular_rachas(tabla, timestamps_ordenados, simbolos_vistos):
     """Devuelve la lista de monedas cuya racha de las últimas VENTANA_RACHA
     corridas es consistentemente ascendente (o descendente, según DIRECCION)
     Y supera el umbral configurado. Evita alertas por un solo salto de ruido:
-    solo califica si el movimiento fue sostenido corrida tras corrida."""
+    solo califica si el movimiento fue sostenido corrida tras corrida.
+
+    También exige (si USAR_FILTRO_BTC) que el movimiento supere al de BTC en
+    la misma ventana por MARGEN_FUERZA_RELATIVA_BTC puntos porcentuales, para
+    filtrar rachas que son solo el mercado completo moviéndose con BTC."""
     calificados = []
     if len(timestamps_ordenados) < VENTANA_RACHA:
         return calificados
 
     ventana_ts = timestamps_ordenados[-VENTANA_RACHA:]
+
+    valores_btc = [tabla[ts].get("BTCUSDT") for ts in ventana_ts]
+    btc_disponible = not any(v is None for v in valores_btc)
+    delta_btc = round(valores_btc[-1] - valores_btc[0], 2) if btc_disponible else None
+
     for symbol in simbolos_vistos:
+        if symbol == "BTCUSDT":
+            continue  # no tiene sentido comparar BTC contra sí mismo
         valores = [tabla[ts].get(symbol) for ts in ventana_ts]
         if any(v is None for v in valores):
             continue  # no apareció en el top en alguna de esas corridas, no se puede evaluar
@@ -386,19 +444,166 @@ def calcular_rachas(tabla, timestamps_ordenados, simbolos_vistos):
             monotona = all(valores[i] < valores[i + 1] for i in range(len(valores) - 1))
             delta_total = round(valores[-1] - valores[0], 2)
             califica = monotona and delta_total >= UMBRAL_RACHA
+            if califica and USAR_FILTRO_BTC and btc_disponible:
+                califica = (delta_total - delta_btc) >= MARGEN_FUERZA_RELATIVA_BTC
         else:
             monotona = all(valores[i] > valores[i + 1] for i in range(len(valores) - 1))
             delta_total = round(valores[-1] - valores[0], 2)
             califica = monotona and delta_total <= -UMBRAL_RACHA
+            if califica and USAR_FILTRO_BTC and btc_disponible:
+                califica = (delta_btc - delta_total) >= MARGEN_FUERZA_RELATIVA_BTC
 
         if califica:
             calificados.append({
                 "symbol": symbol,
                 "valores": valores,
                 "delta_total": delta_total,
+                "delta_btc": delta_btc,
             })
 
     return calificados
+
+
+# --- Estadísticas adicionales por alerta (nuevo, 8-sept-2026) ---
+# Todo esto se guarda SOLO para las monedas que realmente califican esta
+# corrida (no para las 15 del top completo), para no disparar el número de
+# llamadas a la API innecesariamente.
+DIAS_SEMANA_ES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+
+
+def obtener_contexto_alerta(symbol):
+    """Reúne, en el momento exacto de una alerta: RSI, tendencia de medias
+    móviles, volatilidad (ATR%), y del order book el desequilibrio y el
+    spread. Todo esto (salvo RSI/SMA/ATR, que ya probamos en Pine con poca
+    muestra) es información que TradingView/Pine nunca pudo evaluar."""
+    contexto = {
+        "rsi": None, "tendencia_sma": None, "atr_pct": None,
+        "ob_imbalance_pct": None, "ob_spread_pct": None,
+    }
+
+    klines = obtener_klines(symbol)
+    if klines is not None:
+        cierres, maximos, minimos, _volumenes = klines
+        contexto["rsi"] = calcular_rsi(cierres)
+        sma_corta = sma(cierres, SMA_CORTA)
+        sma_larga = sma(cierres, SMA_LARGA)
+        if sma_corta is not None and sma_larga is not None:
+            contexto["tendencia_sma"] = "alcista" if sma_corta > sma_larga else "bajista"
+        contexto["atr_pct"] = calcular_atr_pct(maximos, minimos, cierres)
+
+    orderbook = obtener_order_book(symbol)
+    if orderbook is not None:
+        bids, asks = orderbook
+        spread_pct, imbalance_pct = calcular_metricas_orderbook(bids, asks)
+        contexto["ob_spread_pct"] = round(spread_pct, 4) if spread_pct is not None else None
+        contexto["ob_imbalance_pct"] = round(imbalance_pct, 2) if imbalance_pct is not None else None
+
+    return contexto
+    """Consulta el precio actual de UN símbolo específico (puede no estar en
+    el top N de esta corrida). Se usa solo para resolver alertas pendientes,
+    así que es una llamada liviana y puntual, no parte del escaneo completo."""
+    base = "https://fapi.binance.com/fapi/v1/ticker/price" if MERCADO == "futuros" else "https://api.binance.com/api/v3/ticker/price"
+    try:
+        resp = requests.get(base, params={"symbol": symbol}, timeout=10)
+        resp.raise_for_status()
+        return float(resp.json()["price"])
+    except Exception:
+        return None
+
+
+# --- Cerrar el ciclo: seguimiento automático del resultado de cada alerta ---
+# (nuevo, 8-sept-2026) Horizontes de seguimiento (en minutos) y qué tanto
+# tiene que haberse movido A FAVOR de la racha, al horizonte final, para
+# contar como "continuó" (mismo criterio de test_alerta_temprana.py).
+HORIZONTES_SEGUIMIENTO_MIN = {"30m": 30, "1h": 60, "2h": 120, "4h": 240}
+HORIZONTE_FINAL = "4h"
+UMBRAL_CONTINUACION_SEGUIMIENTO = 3.0
+
+# Índices de columna (0-based) de la hoja "Alertas" — mantenerlos sincronizados
+# con el encabezado que se crea en procesar_alertas.
+COL_FECHA, COL_SYMBOL = 0, 1
+COL_PRECIO_ALERTA = 13
+COL_RET_30M, COL_RET_1H, COL_RET_2H, COL_RET_4H = 14, 15, 16, 17
+COL_MAX_FAV, COL_MAX_ADV = 18, 19
+COL_RESUELTO, COL_CONTINUO = 20, 21
+COLS_RETORNO_POR_HORIZONTE = {"30m": COL_RET_30M, "1h": COL_RET_1H, "2h": COL_RET_2H, "4h": COL_RET_4H}
+
+
+def resolver_alertas_pendientes(wb):
+    """Revisa la hoja 'Alertas' en busca de alertas todavía no resueltas del
+    todo, consulta el precio actual de esas monedas, y va llenando: el
+    retorno en cada horizonte (30m/1h/2h/4h) apenas se cumple, y la máxima
+    ganancia y máxima caída vistas en el camino (para poder calibrar un
+    stop-loss real más adelante). Al llegar al horizonte final (4h), marca
+    la alerta como resuelta y registra si continuó o no."""
+    if "Alertas" not in wb.sheetnames:
+        return
+    hoja = wb["Alertas"]
+    ahora = datetime.now()
+    resueltas_esta_corrida = 0
+
+    for fila in hoja.iter_rows(min_row=2):
+        if fila[COL_RESUELTO].value == "S":
+            continue
+        try:
+            fecha_alerta = datetime.strptime(fila[COL_FECHA].value, "%Y-%m-%d %H:%M:%S")
+        except Exception:
+            continue
+
+        precio_alerta = fila[COL_PRECIO_ALERTA].value
+        if precio_alerta is None:
+            fila[COL_RESUELTO].value = "S"  # no hay precio de referencia, no se puede evaluar
+            continue
+
+        minutos_pasados = (ahora - fecha_alerta).total_seconds() / 60
+        if minutos_pasados < HORIZONTES_SEGUIMIENTO_MIN["30m"]:
+            continue  # ni siquiera llegó al primer horizonte todavía
+
+        precio_actual = obtener_precio_actual(fila[COL_SYMBOL].value)
+        if precio_actual is None:
+            continue  # se reintenta en la próxima corrida
+
+        retorno_pct = (precio_actual - precio_alerta) / precio_alerta * 100
+        if DIRECCION != "ascendente":
+            retorno_pct = -retorno_pct  # para perdedoras, "a favor" es que siga bajando
+
+        # Actualiza máximo favorable / máximo adverso vistos hasta ahora
+        max_fav_actual = fila[COL_MAX_FAV].value
+        max_adv_actual = fila[COL_MAX_ADV].value
+        fila[COL_MAX_FAV].value = retorno_pct if max_fav_actual is None else max(max_fav_actual, retorno_pct)
+        fila[COL_MAX_ADV].value = retorno_pct if max_adv_actual is None else min(max_adv_actual, retorno_pct)
+
+        # Llena el retorno del horizonte más grande ya cumplido que todavía esté vacío
+        for nombre_horizonte, minutos_horizonte in HORIZONTES_SEGUIMIENTO_MIN.items():
+            col = COLS_RETORNO_POR_HORIZONTE[nombre_horizonte]
+            if minutos_pasados >= minutos_horizonte and fila[col].value is None:
+                fila[col].value = round(retorno_pct, 2)
+
+        if minutos_pasados >= HORIZONTES_SEGUIMIENTO_MIN[HORIZONTE_FINAL]:
+            retorno_final = fila[COLS_RETORNO_POR_HORIZONTE[HORIZONTE_FINAL]].value
+            fila[COL_CONTINUO].value = "S" if retorno_final is not None and retorno_final >= UMBRAL_CONTINUACION_SEGUIMIENTO else "N"
+            fila[COL_RESUELTO].value = "S"
+            resueltas_esta_corrida += 1
+
+    if resueltas_esta_corrida:
+        print(f"Seguimiento: se resolvieron {resueltas_esta_corrida} alerta(s) pendiente(s).")
+        imprimir_resumen_seguimiento(hoja)
+
+
+def imprimir_resumen_seguimiento(hoja):
+    """Imprime en consola el % de alertas históricas que sí continuaron
+    (al horizonte final), usando todas las filas ya resueltas hasta ahora."""
+    total = 0
+    continuo = 0
+    for fila in hoja.iter_rows(min_row=2, values_only=True):
+        resuelto, continuo_val = fila[COL_RESUELTO], fila[COL_CONTINUO]
+        if resuelto == "S" and continuo_val in ("S", "N"):
+            total += 1
+            if continuo_val == "S":
+                continuo += 1
+    if total > 0:
+        print(f"Resumen histórico de alertas resueltas: {continuo}/{total} continuaron "
+              f"({100 * continuo / total:.1f}%).")
 
 
 def enviar_notificacion_windows(calificados):
@@ -450,36 +655,110 @@ def enviar_notificacion_telegram(calificados):
         print(f"Aviso: no se pudo enviar la alerta a Telegram: {e}")
 
 
-def procesar_alertas(wb, tabla, timestamps_ordenados, simbolos_vistos):
-    """Detecta rachas sostenidas, las registra en la hoja 'Alertas' (que se
-    conserva entre corridas, a diferencia de Pivot/Aceleración/Gráfica/Selector
-    que se reconstruyen desde cero cada vez), y dispara la notificación."""
+# --- Deduplicar alertas repetidas (nuevo, 8-sept-2026) ---
+# Evita que la misma racha en curso mande el mismo símbolo cada 5 minutos.
+# Solo se vuelve a alertar si pasó el cooldown, O si la racha creció lo
+# suficiente como para ser información nueva y relevante.
+COOLDOWN_ALERTA_MINUTOS = 60
+INCREMENTO_MINIMO_REALERTA = 5.0
+
+
+def filtrar_alertas_nuevas(calificados, hoja_alertas):
+    """De la lista de monedas que califican esta corrida, devuelve solo las
+    que vale la pena notificar de nuevo: la primera vez que aparecen, o si
+    ya pasó el cooldown, o si la racha creció significativamente desde la
+    última vez que se alertó ese símbolo."""
+    ultima_alerta_por_symbol = {}
+    for fila in hoja_alertas.iter_rows(min_row=2, values_only=True):
+        fecha, symbol, _valores, delta = fila[0], fila[1], fila[2], fila[3]
+        try:
+            fecha_dt = datetime.strptime(fecha, "%Y-%m-%d %H:%M:%S")
+        except Exception:
+            continue
+        previa = ultima_alerta_por_symbol.get(symbol)
+        if previa is None or fecha_dt > previa["fecha"]:
+            ultima_alerta_por_symbol[symbol] = {"fecha": fecha_dt, "delta": delta}
+
+    ahora = datetime.now()
+    nuevas = []
+    for item in calificados:
+        previa = ultima_alerta_por_symbol.get(item["symbol"])
+        if previa is None:
+            nuevas.append(item)
+            continue
+        paso_cooldown = (ahora - previa["fecha"]) >= timedelta(minutes=COOLDOWN_ALERTA_MINUTOS)
+        crecio_lo_suficiente = previa["delta"] is not None and (
+            abs(item["delta_total"]) >= abs(previa["delta"]) + INCREMENTO_MINIMO_REALERTA
+        )
+        if paso_cooldown or crecio_lo_suficiente:
+            nuevas.append(item)
+    return nuevas
+
+
+def procesar_alertas(wb, tabla, timestamps_ordenados, simbolos_vistos, ultimo_info, funding_dict):
+    """Detecta rachas sostenidas, filtra las que ya se alertaron recientemente
+    (deduplicación), las registra en la hoja 'Alertas' junto con todo el
+    contexto disponible en ese momento (RSI, tendencia, volatilidad, funding
+    rate, order book, hora del día), y dispara la notificación."""
     calificados = calcular_rachas(tabla, timestamps_ordenados, simbolos_vistos)
 
     if "Alertas" not in wb.sheetnames:
         hoja_alertas = wb.create_sheet("Alertas")
-        hoja_alertas.append(["Fecha/Hora detección", "Symbol", "Valores en la racha (%)", "Cambio total (p.p.)"])
+        hoja_alertas.append([
+            "Fecha/Hora detección", "Symbol", "Valores en la racha (%)", "Cambio total (p.p.)",
+            "Racha BTC (p.p.)", "Hora del día", "Día de la semana",
+            "RSI", "Tendencia SMA", "ATR %", "Funding Rate %",
+            "OrderBook Imbalance %", "OrderBook Spread %",
+            "Precio en alerta",
+            "Retorno 30m %", "Retorno 1h %", "Retorno 2h %", "Retorno 4h %",
+            "Max favorable %", "Max adverso %",
+            "Resuelto", "Continuó",
+        ])
         for cell in hoja_alertas[1]:
             cell.font = Font(bold=True)
-        hoja_alertas.column_dimensions["A"].width = 20
-        hoja_alertas.column_dimensions["B"].width = 14
-        hoja_alertas.column_dimensions["C"].width = 32
-        hoja_alertas.column_dimensions["D"].width = 20
+        anchos_alertas = [20, 12, 30, 18, 14, 12, 14, 8, 14, 10, 14, 20, 18, 16,
+                          14, 14, 14, 14, 14, 14, 10, 10]
+        for i, ancho in enumerate(anchos_alertas, start=1):
+            hoja_alertas.column_dimensions[get_column_letter(i)].width = ancho
     else:
         hoja_alertas = wb["Alertas"]
 
     if not calificados:
         return
 
+    calificados_nuevos = filtrar_alertas_nuevas(calificados, hoja_alertas)
+    if not calificados_nuevos:
+        print(f"({len(calificados)} moneda(s) en racha, pero ya alertadas recientemente — se omite repetir.)")
+        return
+
     timestamp_actual = timestamps_ordenados[-1]
-    for item in calificados:
+    fecha_dt = datetime.strptime(timestamp_actual, "%Y-%m-%d %H:%M:%S")
+    hora_del_dia = fecha_dt.hour
+    dia_semana = DIAS_SEMANA_ES[fecha_dt.weekday()]
+
+    for item in calificados_nuevos:
+        symbol = item["symbol"]
         valores_str = " → ".join(str(v) for v in item["valores"])
-        hoja_alertas.append([timestamp_actual, item["symbol"], valores_str, item["delta_total"]])
-        print(f"[{timestamp_actual}] 🔥 RACHA: {item['symbol']} ({valores_str}, "
+        precio_alerta = ultimo_info.get(symbol, {}).get("precio")
+        funding = funding_dict.get(symbol)
+        contexto = obtener_contexto_alerta(symbol)
+
+        hoja_alertas.append([
+            timestamp_actual, symbol, valores_str, item["delta_total"],
+            item.get("delta_btc"), hora_del_dia, dia_semana,
+            contexto["rsi"], contexto["tendencia_sma"], contexto["atr_pct"],
+            round(funding, 4) if funding is not None else None,
+            contexto["ob_imbalance_pct"], contexto["ob_spread_pct"],
+            precio_alerta,
+            None, None, None, None,  # retornos a 30m/1h/2h/4h, se llenan después
+            None, None,              # max favorable / max adverso, se llenan después
+            "N", None,
+        ])
+        print(f"[{timestamp_actual}] 🔥 RACHA: {symbol} ({valores_str}, "
               f"total {item['delta_total']:+} p.p.)")
 
-    enviar_notificacion_windows(calificados)
-    enviar_notificacion_telegram(calificados)
+    enviar_notificacion_windows(calificados_nuevos)
+    enviar_notificacion_telegram(calificados_nuevos)
 
 
 def construir_pivot(wb, ws):
@@ -629,7 +908,7 @@ def construir_selector(wb, num_filas, num_simbolos):
     hoja_sel.add_chart(chart, "D3")
 
 
-def actualizar_grafica(wb, ws):
+def actualizar_grafica(wb, ws, funding_dict=None):
     """Construye la tabla Pivot (una columna por moneda), la hoja de Aceleración,
     el selector interactivo, procesa las alertas de racha, y una gráfica de
     líneas con una serie por símbolo."""
@@ -643,7 +922,9 @@ def actualizar_grafica(wb, ws):
 
     construir_aceleracion(wb, hoja_pivot, num_filas, num_simbolos)
     construir_selector(wb, num_filas, num_simbolos)
-    procesar_alertas(wb, tabla, timestamps_ordenados, simbolos_vistos)
+    _, _, _, ultimo_info, _ = leer_tabla_agrupada(ws)
+    procesar_alertas(wb, tabla, timestamps_ordenados, simbolos_vistos, ultimo_info, funding_dict or {})
+    resolver_alertas_pendientes(wb)
 
     hoja_grafica = wb.create_sheet("Grafica")
 
@@ -663,6 +944,56 @@ def actualizar_grafica(wb, ws):
     chart.height = 15
 
     hoja_grafica.add_chart(chart, "A1")
+
+
+def construir_resumen_historico_html(wb):
+    """Arma el panel de 'Rendimiento histórico de alertas' a partir de la
+    hoja 'Alertas': cuántas se han resuelto, qué % continuó, y el retorno
+    promedio en cada horizonte. Se va llenando solo con el tiempo — al
+    principio, con pocas alertas resueltas, va a decir que falta muestra."""
+    if "Alertas" not in wb.sheetnames:
+        return ""
+    hoja = wb["Alertas"]
+
+    total = 0
+    continuo = 0
+    retornos_por_horizonte = {"30m": [], "1h": [], "2h": [], "4h": []}
+    for fila in hoja.iter_rows(min_row=2, values_only=True):
+        if len(fila) <= COL_CONTINUO:
+            continue
+        resuelto, continuo_val = fila[COL_RESUELTO], fila[COL_CONTINUO]
+        if resuelto != "S" or continuo_val not in ("S", "N"):
+            continue
+        total += 1
+        if continuo_val == "S":
+            continuo += 1
+        if fila[COL_RET_30M] is not None:
+            retornos_por_horizonte["30m"].append(fila[COL_RET_30M])
+        if fila[COL_RET_1H] is not None:
+            retornos_por_horizonte["1h"].append(fila[COL_RET_1H])
+        if fila[COL_RET_2H] is not None:
+            retornos_por_horizonte["2h"].append(fila[COL_RET_2H])
+        if fila[COL_RET_4H] is not None:
+            retornos_por_horizonte["4h"].append(fila[COL_RET_4H])
+
+    if total == 0:
+        return """<div class="alertas-caja"><p class="sin-alertas">Rendimiento histórico de alertas: todavía sin alertas resueltas
+        (se resuelven ~4 horas después de detectarse). Vuelve a revisar más tarde.</p></div>"""
+
+    pct_continuo = 100 * continuo / total
+    celdas_horizonte = "".join(
+        f"<td>{(sum(vals) / len(vals)):+.2f}%</td>" if vals else "<td>—</td>"
+        for vals in retornos_por_horizonte.values()
+    )
+
+    muestra_txt = "" if total >= 30 else " (muestra todavía chica, tómalo con cautela)"
+
+    return f"""<div class="alertas-caja">
+        <p><b>📊 Rendimiento histórico de alertas{muestra_txt}:</b>
+        {continuo}/{total} continuaron ({pct_continuo:.1f}%) — retorno promedio a favor por horizonte:</p>
+        <table><thead><tr><th>30 min</th><th>1 hora</th><th>2 horas</th><th>4 horas (final)</th></tr></thead>
+        <tbody><tr>{celdas_horizonte}</tr></tbody></table>
+        </div>"""
 
 
 def generar_dashboard_html(wb, ws):
@@ -702,6 +1033,15 @@ def generar_dashboard_html(wb, ws):
     calificados = calcular_rachas(tabla, timestamps_ordenados, simbolos_vistos)
     simbolos_en_racha = {item["symbol"] for item in calificados}
 
+    # Racha de BTC en la misma ventana que usa el filtro de fuerza relativa,
+    # para poder mostrar "fuerza vs BTC" en la tabla de análisis de CADA
+    # moneda del top — no solo en las que ya calificaron como alerta.
+    ventana_btc_ts = timestamps_ordenados[-VENTANA_RACHA:] if len(timestamps_ordenados) >= VENTANA_RACHA else []
+    valores_btc_reciente = [tabla[ts].get("BTCUSDT") for ts in ventana_btc_ts]
+    btc_delta_reciente = None
+    if ventana_btc_ts and not any(v is None for v in valores_btc_reciente):
+        btc_delta_reciente = round(valores_btc_reciente[-1] - valores_btc_reciente[0], 2)
+
     # --- Sección de análisis: combina racha, funding rate (y su tendencia),
     # volumen, volatilidad reciente y extremo del período en un veredicto
     # simple y explicado, para evaluar una posible entrada. Es contexto para
@@ -721,6 +1061,17 @@ def generar_dashboard_html(wb, ws):
         volumen = info.get("volumen")
         funding = info.get("funding")
         en_racha = symbol in simbolos_en_racha
+
+        # Fuerza relativa vs BTC (mismo cálculo/umbral que usa el filtro de alertas)
+        fuerza_vs_btc = None
+        if ventana_btc_ts and btc_delta_reciente is not None:
+            valores_ventana_symbol = [tabla[ts].get(symbol) for ts in ventana_btc_ts]
+            if not any(v is None for v in valores_ventana_symbol):
+                delta_symbol_reciente = round(valores_ventana_symbol[-1] - valores_ventana_symbol[0], 2)
+                fuerza_vs_btc = round(
+                    (delta_symbol_reciente - btc_delta_reciente) if DIRECCION == "ascendente"
+                    else (btc_delta_reciente - delta_symbol_reciente), 2
+                )
 
         # Extremo del período
         valores_historicos = [tabla[ts].get(symbol) for ts in timestamps_ordenados if tabla[ts].get(symbol) is not None]
@@ -778,7 +1129,6 @@ def generar_dashboard_html(wb, ws):
 
         # Funding rate: valor + tendencia (comparando contra unas corridas atrás)
         funding_extremo = funding is not None and abs(funding) >= UMBRAL_FUNDING_ALERTA
-
         fundings_recientes = [
             tabla_funding.get(ts, {}).get(symbol) for ts in timestamps_ordenados[-VENTANA_RACHA:]
         ]
@@ -877,9 +1227,17 @@ def generar_dashboard_html(wb, ws):
             clase_imbalance = ""
             imbalance_txt = "—"
 
+        if fuerza_vs_btc is not None:
+            clase_fuerza_btc = "delta-pos" if fuerza_vs_btc >= MARGEN_FUERZA_RELATIVA_BTC else ("delta-neg" if fuerza_vs_btc < 0 else "")
+            fuerza_btc_txt = f"{fuerza_vs_btc:+.2f} p.p." + (" ✓" if fuerza_vs_btc >= MARGEN_FUERZA_RELATIVA_BTC else "")
+        else:
+            clase_fuerza_btc = ""
+            fuerza_btc_txt = "—"
+
         filas_analisis.append(
             f"<tr><td>{'🔥 ' if en_racha else ''}{symbol}</td>"
             f"<td>{pct_actual:+.2f}%</td>"
+            f"<td class='{clase_fuerza_btc}' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>{fuerza_btc_txt}</td>"
             f"<td>{volumen_txt}</td>"
             f"<td class='{clase_funding}'>{funding_txt}</td>"
             f"<td class='{clase_rsi}'>{rsi_txt}</td>"
@@ -895,8 +1253,10 @@ def generar_dashboard_html(wb, ws):
         )
 
     if filas_analisis:
+        html_resumen_historico = construir_resumen_historico_html(wb)
         html_analisis = f"""
         <p class="nota-analisis"><b>Esto es contexto para apoyar tu criterio — no es una señal automática de compra/venta.</b>
+        <br>• <b>Fuerza vs BTC</b>: cuánto más se movió esta moneda que BTC en la misma ventana ({VENTANA_RACHA} corridas) — el ✓ indica que ya supera el margen mínimo ({MARGEN_FUERZA_RELATIVA_BTC} p.p.) que exige el filtro de alertas. Sin esto, un movimiento puede ser solo "todo el mercado siguiendo a BTC", no una racha propia.
         <br>• <b>Funding Rate</b>: resaltado cuando supera ±{UMBRAL_FUNDING_ALERTA}% — mercado muy cargado de largos o cortos, mayor riesgo de squeeze. La tendencia (↑↓→) compara contra hace {VENTANA_RACHA} corridas.
         <br>• <b>RSI (14, velas de {KLINES_INTERVALO})</b>: resaltado si está en sobrecompra (≥70, para ganadoras) o sobreventa (≤30, para perdedoras) — momentum ya extendido.
         <br>• <b>Tendencia (medias móviles)</b>: compara el precio contra sus promedios de 20 y 50 velas — te dice si la estructura de fondo acompaña el movimiento o no.
@@ -906,8 +1266,9 @@ def generar_dashboard_html(wb, ws):
         <br>• <b>Volatilidad reciente</b>: rango entre el % más alto y más bajo de las últimas corridas — más alto = movimiento más "picado".
         <br>• <b>Extremo del período</b>: el % actual es el más alto/bajo de los últimos {VENTANA_DASHBOARD_DIAS} días mostrados en el gráfico.
         <br>• <b>Veredicto</b>: combina todo lo anterior en una lectura simple. Pasa el mouse sobre él para ver el motivo exacto.</p>
+        {html_resumen_historico}
         <div class="alertas-caja">
-            <table><thead><tr><th>Moneda</th><th>% Actual</th><th>Volumen 24h</th><th>Funding Rate</th><th>RSI</th><th>Tendencia</th><th>Nivel clave</th><th>Soporte</th><th>Resistencia</th><th>Spread</th><th>Presión C/V</th><th>Volatilidad</th><th>Extremo</th><th>Veredicto</th></tr></thead>
+            <table><thead><tr><th>Moneda</th><th>% Actual</th><th>Fuerza vs BTC</th><th>Volumen 24h</th><th>Funding Rate</th><th>RSI</th><th>Tendencia</th><th>Nivel clave</th><th>Soporte</th><th>Resistencia</th><th>Spread</th><th>Presión C/V</th><th>Volatilidad</th><th>Extremo</th><th>Veredicto</th></tr></thead>
             <tbody>{''.join(filas_analisis)}</tbody></table>
         </div>"""
     else:
@@ -1253,39 +1614,35 @@ def publicar_en_github(html_path_local):
 
 
 def main():
-    top_perdedoras = obtener_top_perdedoras()
+    top_perdedoras, btc_info = obtener_top_perdedoras()
     if not top_perdedoras:
         print("No se encontraron datos (revisa tu conexión o los filtros de volumen).")
         return
-    guardar_en_excel(top_perdedoras)
+    guardar_en_excel(top_perdedoras, btc_info)
 
 
 if __name__ == "__main__":
     main()
 
 # ============================================================
-# CÓMO PROGRAMARLO EN WINDOWS (Task Scheduler)
+# CÓMO PROGRAMARLO CADA HORA EN WINDOWS (Task Scheduler)
 # ============================================================
-# Ya tienes Python instalado y la mayoría de librerías, así que solo falta:
-# 1. Abre CMD y corre (para la notificación de racha):
-#       pip install plyer
-# 2. Guarda este archivo en la MISMA carpeta que el de ganadoras:
-#       C:\BinanceTracker\binance_tracker_perdedores.py
-# 3. Abre "Programador de tareas" (Task Scheduler) en Windows.
-# 4. Crear tarea básica:
-#       - Nombre: Binance Tracker Perdedoras
-#       - Desencadenador: Diariamente, repetir cada 5 minutos
-#         (o 1 hora cuando termines de probar)
+# 1. Instala Python (python.org) si no lo tienes, y marca
+#    "Add Python to PATH" durante la instalación.
+# 2. Abre CMD y corre:
+#       pip install requests openpyxl matplotlib
+# 3. Guarda este archivo en una carpeta fija, ej:
+#       C:\BinanceTracker\binance_tracker.py
+# 4. Abre "Programador de tareas" (Task Scheduler) en Windows.
+# 5. Crear tarea básica:
+#       - Nombre: Binance Tracker
+#       - Desencadenador: Diariamente, repetir cada 1 hora,
+#         durante 24 horas (o el rango que quieras)
 #       - Acción: Iniciar un programa
-#           Programa: (usa la ruta completa a python.exe, la que
-#                      te dio "where python", igual que en la tarea
-#                      de ganadoras)
-#           Argumentos: "C:\BinanceTracker\binance_tracker_perdedores.py"
+#           Programa: python
+#           Argumentos: "C:\BinanceTracker\binance_tracker.py"
 #           Iniciar en: C:\BinanceTracker
-#       - Pestaña Configuración: "Aplicar la siguiente regla si la
-#         tarea ya está en ejecución" → "Poner en cola una instancia
-#         nueva" (evita que se trabe si una corrida tarda más de lo normal)
-# 5. Guarda. El archivo binance_futures_perdedores.xlsx y el
-#    binance_dashboard_perdedores.html se irán generando en la
-#    misma carpeta, sin chocar con los archivos de ganadoras.
+# 6. Guarda. El archivo binance_gainers.xlsx se irá actualizando
+#    solo cada hora, con una hoja "Grafica" que se regenera
+#    automáticamente en cada corrida.
 # ============================================================
