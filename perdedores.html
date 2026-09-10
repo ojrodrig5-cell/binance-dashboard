@@ -48,7 +48,7 @@
 </head>
 <body>
 <h2>Binance Futures — % Cambio 24h por moneda (Perdedoras)</h2>
-<p>Mostrando los últimos 4 días. Pasa el mouse sobre una línea para resaltarla y ver a qué moneda corresponde. Clic en una etiqueta de abajo para mostrarla/ocultarla; clic en el 🎯 para ver solo esa moneda. Por defecto solo se muestran las del top actual o en racha. 🔥 = lleva 2 corridas seguidas moviéndose fuerte y sostenido en la misma dirección. Última actualización: 2026-09-10 11:46:09</p>
+<p>Mostrando los últimos 4 días. Pasa el mouse sobre una línea para resaltarla y ver a qué moneda corresponde. Clic en una etiqueta de abajo para mostrarla/ocultarla; clic en el 🎯 para ver solo esa moneda. Por defecto solo se muestran las del top actual o en racha. 🔥 = lleva 2 corridas seguidas moviéndose fuerte y sostenido en la misma dirección. Última actualización: 2026-09-10 11:51:07</p>
 <div class="tabs">
     <button class="tab-btn active" onclick="mostrarTab('grafico', this)">📈 Gráfico</button>
     <button class="tab-btn" onclick="mostrarTab('alertas', this)">🔔 Alertas</button>
@@ -62,7 +62,7 @@
         <button class="btn-mostrar-todas" onclick="mostrarTodas()">Mostrar todas</button>
         <button class="btn-mostrar-todas" onclick="ocultarTodas()">Ocultar todas</button>
     </div>
-    <div class="leyenda-chips"><span class="leyenda-chip " id="chip-0" data-symbol="IOSTUSDT" onclick="toggleMoneda(0)"><span class="chip-punto" style="background:hsl(0, 70%, 45%)"></span>IOSTUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(0)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-1" data-symbol="龙虾USDT" onclick="toggleMoneda(1)"><span class="chip-punto" style="background:hsl(47, 70%, 45%)"></span>龙虾USDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(1)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-2" data-symbol="BEATUSDT" onclick="toggleMoneda(2)"><span class="chip-punto" style="background:hsl(94, 70%, 45%)"></span>BEATUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(2)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-3" data-symbol="VELVETUSDT" onclick="toggleMoneda(3)"><span class="chip-punto" style="background:hsl(141, 70%, 45%)"></span>VELVETUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(3)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-4" data-symbol="LABUSDT" onclick="toggleMoneda(4)"><span class="chip-punto" style="background:hsl(188, 70%, 45%)"></span>LABUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(4)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-5" data-symbol="RVNUSDT" onclick="toggleMoneda(5)"><span class="chip-punto" style="background:hsl(235, 70%, 45%)"></span>RVNUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(5)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-6" data-symbol="XVGUSDT" onclick="toggleMoneda(6)"><span class="chip-punto" style="background:hsl(282, 70%, 45%)"></span>XVGUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(6)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-7" data-symbol="TRIAUSDT" onclick="toggleMoneda(7)"><span class="chip-punto" style="background:hsl(329, 70%, 45%)"></span>TRIAUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(7)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-8" data-symbol="PHAUSDT" onclick="toggleMoneda(8)"><span class="chip-punto" style="background:hsl(16, 70%, 45%)"></span>PHAUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(8)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-9" data-symbol="PONSUSDT" onclick="toggleMoneda(9)"><span class="chip-punto" style="background:hsl(63, 70%, 45%)"></span>PONSUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(9)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-10" data-symbol="IDOLUSDT" onclick="toggleMoneda(10)"><span class="chip-punto" style="background:hsl(110, 70%, 45%)"></span>IDOLUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(10)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-11" data-symbol="HEIUSDT" onclick="toggleMoneda(11)"><span class="chip-punto" style="background:hsl(157, 70%, 45%)"></span>HEIUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(11)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-12" data-symbol="我踏马来了USDT" onclick="toggleMoneda(12)"><span class="chip-punto" style="background:hsl(204, 70%, 45%)"></span>我踏马来了USDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(12)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-13" data-symbol="PUMPUSDT" onclick="toggleMoneda(13)"><span class="chip-punto" style="background:hsl(251, 70%, 45%)"></span>PUMPUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(13)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-14" data-symbol="ONGUSDT" onclick="toggleMoneda(14)"><span class="chip-punto" style="background:hsl(298, 70%, 45%)"></span>ONGUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(14)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-15" data-symbol="BTCUSDT" onclick="toggleMoneda(15)"><span class="chip-punto" style="background:hsl(345, 70%, 45%)"></span>BTCUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(15)" title="Ver solo esta moneda">🎯</button></span></div>
+    <div class="leyenda-chips"><span class="leyenda-chip " id="chip-0" data-symbol="IOSTUSDT" onclick="toggleMoneda(0)"><span class="chip-punto" style="background:hsl(0, 70%, 45%)"></span>IOSTUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(0)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-1" data-symbol="龙虾USDT" onclick="toggleMoneda(1)"><span class="chip-punto" style="background:hsl(47, 70%, 45%)"></span>龙虾USDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(1)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-2" data-symbol="BEATUSDT" onclick="toggleMoneda(2)"><span class="chip-punto" style="background:hsl(94, 70%, 45%)"></span>BEATUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(2)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-3" data-symbol="VELVETUSDT" onclick="toggleMoneda(3)"><span class="chip-punto" style="background:hsl(141, 70%, 45%)"></span>VELVETUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(3)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-4" data-symbol="LABUSDT" onclick="toggleMoneda(4)"><span class="chip-punto" style="background:hsl(188, 70%, 45%)"></span>LABUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(4)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-5" data-symbol="RVNUSDT" onclick="toggleMoneda(5)"><span class="chip-punto" style="background:hsl(235, 70%, 45%)"></span>RVNUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(5)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-6" data-symbol="XVGUSDT" onclick="toggleMoneda(6)"><span class="chip-punto" style="background:hsl(282, 70%, 45%)"></span>XVGUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(6)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-7" data-symbol="TRIAUSDT" onclick="toggleMoneda(7)"><span class="chip-punto" style="background:hsl(329, 70%, 45%)"></span>TRIAUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(7)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-8" data-symbol="PHAUSDT" onclick="toggleMoneda(8)"><span class="chip-punto" style="background:hsl(16, 70%, 45%)"></span>PHAUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(8)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-9" data-symbol="PONSUSDT" onclick="toggleMoneda(9)"><span class="chip-punto" style="background:hsl(63, 70%, 45%)"></span>PONSUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(9)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-10" data-symbol="IDOLUSDT" onclick="toggleMoneda(10)"><span class="chip-punto" style="background:hsl(110, 70%, 45%)"></span>IDOLUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(10)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-11" data-symbol="HEIUSDT" onclick="toggleMoneda(11)"><span class="chip-punto" style="background:hsl(157, 70%, 45%)"></span>HEIUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(11)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-12" data-symbol="我踏马来了USDT" onclick="toggleMoneda(12)"><span class="chip-punto" style="background:hsl(204, 70%, 45%)"></span>我踏马来了USDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(12)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-13" data-symbol="PUMPUSDT" onclick="toggleMoneda(13)"><span class="chip-punto" style="background:hsl(251, 70%, 45%)"></span>PUMPUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(13)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip chip-oculto" id="chip-14" data-symbol="ONGUSDT" onclick="toggleMoneda(14)"><span class="chip-punto" style="background:hsl(298, 70%, 45%)"></span>ONGUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(14)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-15" data-symbol="BTCUSDT" onclick="toggleMoneda(15)"><span class="chip-punto" style="background:hsl(345, 70%, 45%)"></span>BTCUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(15)" title="Ver solo esta moneda">🎯</button></span><span class="leyenda-chip " id="chip-16" data-symbol="CHIPUSDT" onclick="toggleMoneda(16)"><span class="chip-punto" style="background:hsl(32, 70%, 45%)"></span>CHIPUSDT<button class="chip-aislar" onclick="event.stopPropagation(); aislarMoneda(16)" title="Ver solo esta moneda">🎯</button></span></div>
     <div id="chartContainer">
     <canvas id="grafico" height="100"></canvas>
     </div>
@@ -92,7 +92,7 @@
         (se resuelven ~4 horas después de detectarse). Vuelve a revisar más tarde.</p></div>
         <div class="alertas-caja">
             <table><thead><tr><th>Moneda</th><th>% Actual</th><th>Fuerza vs BTC</th><th>Volumen 24h</th><th>Funding Rate</th><th>RSI</th><th>Tendencia</th><th>Nivel clave</th><th>Soporte</th><th>Resistencia</th><th>Spread</th><th>Presión C/V</th><th>Volatilidad</th><th>Extremo</th><th>Veredicto</th></tr></thead>
-            <tbody><tr><td>IOSTUSDT</td><td>-44.78%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>—</td><td>$1,048,625,892</td><td class='delta-neg'>-0.1222% (—)</td><td class=''>34.9</td><td>➡️ Mixta</td><td>Soporte a 4.66%</td><td>$0.00097940</td><td>$0.00222000</td><td>0.029%</td><td class='delta-neg'>-1.8% venta</td><td>—</td><td>🔻 Mínimo del período</td><td class='veredicto-riesgo' title='funding ya muy cargado en la misma dirección (riesgo de squeeze); en el extremo de su rango reciente (posible agotamiento); volumen alto (movimiento más confiable)'>🔴 Precaución</td></tr><tr><td>龙虾USDT</td><td>-38.63%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>—</td><td>$47,100,943</td><td class=''>+0.0050% (—)</td><td class=''>40.0</td><td>📉 Bajista</td><td>Soporte a 4.01%</td><td>$0.03635000</td><td>$0.06436600</td><td>0.077%</td><td class='delta-neg'>-24.6% venta</td><td>—</td><td>🔻 Mínimo del período</td><td class='veredicto-neu' title='en el extremo de su rango reciente (posible agotamiento); estructura de medias móviles bajista (a favor del corto); libro de órdenes confirma presión de venta (-24.6%)'>🟡 Vigilar</td></tr><tr><td>BEATUSDT</td><td>-34.19%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>—</td><td>$49,190,004</td><td class=''>+0.0050% (—)</td><td class=''>43.6</td><td>📉 Bajista</td><td>Soporte a 5.27%</td><td>$0.07730000</td><td>$0.12540000</td><td>0.123%</td><td class='delta-pos'>+9.0% compra</td><td>—</td><td>🔻 Mínimo del período</td><td class='veredicto-neu' title='en el extremo de su rango reciente (posible agotamiento); estructura de medias móviles bajista (a favor del corto)'>🟡 Vigilar</td></tr><tr><td>VELVETUSDT</td><td>-32.71%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>—</td><td>$19,166,484</td><td class=''>-0.0038% (—)</td><td class='delta-neg'>29.4</td><td>📉 Bajista</td><td>Soporte a 9.88%</td><td>$0.04560000</td><td>$0.07640000</td><td>0.198%</td><td class='delta-pos'>+13.5% compra</td><td>—</td><td>🔻 Mínimo del período</td><td class='veredicto-riesgo' title='en el extremo de su rango reciente (posible agotamiento); estructura de medias móviles bajista (a favor del corto); RSI en sobreventa (29.4)'>🔴 Precaución</td></tr><tr><td>LABUSDT</td><td>-29.40%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>—</td><td>$45,257,876</td><td class=''>+0.0050% (—)</td><td class=''>32.2</td><td>📉 Bajista</td><td>Soporte a 24.21%</td><td>$0.03500000</td><td>$0.06588000</td><td>0.022%</td><td class='delta-pos'>+11.0% compra</td><td>—</td><td>🔻 Mínimo del período</td><td class='veredicto-neu' title='en el extremo de su rango reciente (posible agotamiento); estructura de medias móviles bajista (a favor del corto)'>🟡 Vigilar</td></tr><tr><td>RVNUSDT</td><td>-25.49%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>—</td><td>$19,811,957</td><td class='delta-neg'>-0.1793% (—)</td><td class=''>32.2</td><td>📉 Bajista</td><td>Soporte a 2.48%</td><td>$0.00224300</td><td>$0.00309600</td><td>0.044%</td><td class='delta-pos'>+10.1% compra</td><td>—</td><td>🔻 Mínimo del período</td><td class='veredicto-riesgo' title='funding ya muy cargado en la misma dirección (riesgo de squeeze); en el extremo de su rango reciente (posible agotamiento); estructura de medias móviles bajista (a favor del corto)'>🔴 Precaución</td></tr><tr><td>XVGUSDT</td><td>-22.52%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>—</td><td>$13,342,577</td><td class=''>+0.0100% (—)</td><td class='delta-neg'>29.8</td><td>📉 Bajista</td><td>Soporte a 1.12%</td><td>$0.00256900</td><td>$0.00342800</td><td>0.077%</td><td class='delta-neg'>-19.3% venta</td><td>—</td><td>🔻 Mínimo del período</td><td class='veredicto-riesgo' title='en el extremo de su rango reciente (posible agotamiento); estructura de medias móviles bajista (a favor del corto); RSI en sobreventa (29.8)'>🔴 Precaución</td></tr><tr><td>TRIAUSDT</td><td>-21.97%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>—</td><td>$9,600,145</td><td class=''>+0.0050% (—)</td><td class='delta-neg'>24.4</td><td>📉 Bajista</td><td>Soporte a 9.65%</td><td>$0.00300600</td><td>$0.00433200</td><td>0.030%</td><td class='delta-neg'>-27.3% venta</td><td>—</td><td>🔻 Mínimo del período</td><td class='veredicto-neu' title='en el extremo de su rango reciente (posible agotamiento); estructura de medias móviles bajista (a favor del corto); RSI en sobreventa (24.4); libro de órdenes confirma presión de venta (-27.3%)'>🟡 Vigilar</td></tr><tr><td>PHAUSDT</td><td>-21.93%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>—</td><td>$25,779,731</td><td class=''>-0.0026% (—)</td><td class=''>52.9</td><td>➡️ Mixta</td><td>Soporte a 4.98%</td><td>$0.02500000</td><td>$0.03490000</td><td>0.076%</td><td class='delta-neg'>-11.0% venta</td><td>—</td><td>🔻 Mínimo del período</td><td class='veredicto-riesgo' title='en el extremo de su rango reciente (posible agotamiento)'>🔴 Precaución</td></tr><tr><td>PONSUSDT</td><td>-21.83%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>—</td><td>$246,411,816</td><td class=''>+0.0175% (—)</td><td class=''>49.4</td><td>➡️ Mixta</td><td>Soporte a 7.55%</td><td>$0.52650000</td><td>$0.73170000</td><td>0.035%</td><td class='delta-pos'>+28.7% compra</td><td>—</td><td>🔻 Mínimo del período</td><td class='veredicto-riesgo' title='en el extremo de su rango reciente (posible agotamiento); libro de órdenes con más presión de compra que de venta (+28.7%), a pesar de la caída; volumen alto (movimiento más confiable)'>🔴 Precaución</td></tr><tr><td>IDOLUSDT</td><td>-21.07%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>—</td><td>$3,012,544</td><td class=''>+0.0050% (—)</td><td class='delta-neg'>25.8</td><td>📉 Bajista</td><td>Soporte a 7.69%</td><td>$0.00876000</td><td>$0.01206000</td><td>0.105%</td><td class='delta-neg'>-26.2% venta</td><td>—</td><td>🔻 Mínimo del período</td><td class='veredicto-riesgo' title='en el extremo de su rango reciente (posible agotamiento); estructura de medias móviles bajista (a favor del corto); RSI en sobreventa (25.8); libro de órdenes confirma presión de venta (-26.2%); volumen relativamente bajo (menos confiable)'>🔴 Precaución</td></tr><tr><td>HEIUSDT</td><td>-20.44%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>—</td><td>$9,868,695</td><td class=''>-0.0300% (—)</td><td class=''>38.5</td><td>➡️ Mixta</td><td>Soporte a 14.89%</td><td>$0.09413000</td><td>$0.14117000</td><td>0.027%</td><td class='delta-neg'>-21.2% venta</td><td>—</td><td>🔻 Mínimo del período</td><td class='veredicto-neu' title='en el extremo de su rango reciente (posible agotamiento); libro de órdenes confirma presión de venta (-21.2%)'>🟡 Vigilar</td></tr><tr><td>我踏马来了USDT</td><td>-20.05%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>—</td><td>$3,294,086</td><td class=''>+0.0050% (—)</td><td class='delta-neg'>18.3</td><td>📉 Bajista</td><td>Soporte a 1.63%</td><td>$0.00941200</td><td>$0.01208600</td><td>0.115%</td><td class='delta-neg'>-18.0% venta</td><td>—</td><td>🔻 Mínimo del período</td><td class='veredicto-riesgo' title='en el extremo de su rango reciente (posible agotamiento); estructura de medias móviles bajista (a favor del corto); RSI en sobreventa (18.3); volumen relativamente bajo (menos confiable)'>🔴 Precaución</td></tr><tr><td>PUMPUSDT</td><td>-19.64%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>—</td><td>$370,733,686</td><td class=''>-0.0047% (—)</td><td class=''>41.6</td><td>📉 Bajista</td><td>Soporte a 1.82%</td><td>$0.00377400</td><td>$0.00487700</td><td>0.026%</td><td class='delta-neg'>-24.9% venta</td><td>—</td><td>🔻 Mínimo del período</td><td class='veredicto-fav' title='en el extremo de su rango reciente (posible agotamiento); estructura de medias móviles bajista (a favor del corto); libro de órdenes confirma presión de venta (-24.9%); volumen alto (movimiento más confiable)'>🟢 Favorable</td></tr><tr><td>ONGUSDT</td><td>-17.88%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>—</td><td>$24,843,444</td><td class=''>-0.0415% (—)</td><td class=''>36.4</td><td>📉 Bajista</td><td>Soporte a 10.03%</td><td>$0.07014000</td><td>$0.09562000</td><td>0.013%</td><td class='delta-neg'>-7.0% venta</td><td>—</td><td>🔻 Mínimo del período</td><td class='veredicto-neu' title='en el extremo de su rango reciente (posible agotamiento); estructura de medias móviles bajista (a favor del corto)'>🟡 Vigilar</td></tr><tr><td>BTCUSDT</td><td>-2.17%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>—</td><td>$11,478,786,927</td><td class=''>+0.0053% (—)</td><td class=''>41.4</td><td>📉 Bajista</td><td>Soporte a 0.57%</td><td>$76,634.30</td><td>$78,942.10</td><td>0.000%</td><td class='delta-pos'>+50.4% compra</td><td>—</td><td>🔻 Mínimo del período</td><td class='veredicto-riesgo' title='en el extremo de su rango reciente (posible agotamiento); estructura de medias móviles bajista (a favor del corto); muy cerca de un nivel clave de soporte (0.57%); libro de órdenes con más presión de compra que de venta (+50.4%), a pesar de la caída; volumen alto (movimiento más confiable)'>🔴 Precaución</td></tr></tbody></table>
+            <tbody><tr><td>IOSTUSDT</td><td>-43.72%</td><td class='delta-neg' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>-0.98 p.p.</td><td>$1,038,452,446</td><td class='delta-neg'>-0.1228% (→ estable)</td><td class=''>36.9</td><td>➡️ Mixta</td><td>Soporte a 5.21%</td><td>$0.00097940</td><td>$0.00222000</td><td>0.010%</td><td class='delta-neg'>-41.6% venta</td><td>1.06 p.p.</td><td></td><td class='veredicto-neu' title='funding ya muy cargado en la misma dirección (riesgo de squeeze); libro de órdenes confirma presión de venta (-41.6%); volumen alto (movimiento más confiable)'>🟡 Vigilar</td></tr><tr><td>龙虾USDT</td><td>-37.98%</td><td class='delta-neg' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>-0.57 p.p.</td><td>$47,133,792</td><td class=''>+0.0050% (→ estable)</td><td class=''>39.7</td><td>📉 Bajista</td><td>Soporte a 3.94%</td><td>$0.03635000</td><td>$0.06436600</td><td>0.066%</td><td class='delta-pos'>+33.3% compra</td><td>0.65 p.p.</td><td></td><td class='veredicto-neu' title='estructura de medias móviles bajista (a favor del corto); libro de órdenes con más presión de compra que de venta (+33.3%), a pesar de la caída'>🟡 Vigilar</td></tr><tr><td>BEATUSDT</td><td>-33.28%</td><td class='delta-neg' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>-0.83 p.p.</td><td>$49,279,579</td><td class=''>+0.0050% (→ estable)</td><td class=''>48.1</td><td>➡️ Mixta</td><td>Soporte a 6.30%</td><td>$0.07730000</td><td>$0.12540000</td><td>0.121%</td><td class='delta-pos'>+11.5% compra</td><td>0.91 p.p.</td><td></td><td class='veredicto-neu' title='sin señales relevantes'>🟡 Vigilar</td></tr><tr><td>VELVETUSDT</td><td>-32.89%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>+0.26 p.p.</td><td>$19,220,048</td><td class=''>-0.0045% (→ estable)</td><td class='delta-neg'>28.8</td><td>📉 Bajista</td><td>Soporte a 9.52%</td><td>$0.04560000</td><td>$0.07640000</td><td>0.198%</td><td class='delta-pos'>+16.8% compra</td><td>0.18 p.p.</td><td>🔻 Mínimo del período</td><td class='veredicto-riesgo' title='en el extremo de su rango reciente (posible agotamiento); estructura de medias móviles bajista (a favor del corto); RSI en sobreventa (28.8)'>🔴 Precaución</td></tr><tr><td>LABUSDT</td><td>-28.98%</td><td class='delta-neg' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>-0.34 p.p.</td><td>$45,285,649</td><td class=''>+0.0050% (→ estable)</td><td class=''>34.0</td><td>📉 Bajista</td><td>Soporte a 24.47%</td><td>$0.03500000</td><td>$0.06588000</td><td>0.022%</td><td class='delta-neg'>-11.0% venta</td><td>0.42 p.p.</td><td></td><td class='veredicto-neu' title='estructura de medias móviles bajista (a favor del corto)'>🟡 Vigilar</td></tr><tr><td>RVNUSDT</td><td>-25.02%</td><td class='delta-neg' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>-0.39 p.p.</td><td>$19,883,423</td><td class='delta-neg'>-0.1755% (→ estable)</td><td class=''>36.7</td><td>📉 Bajista</td><td>Soporte a 3.40%</td><td>$0.00224300</td><td>$0.00309600</td><td>0.043%</td><td class='delta-pos'>+21.2% compra</td><td>0.47 p.p.</td><td></td><td class='veredicto-riesgo' title='funding ya muy cargado en la misma dirección (riesgo de squeeze); estructura de medias móviles bajista (a favor del corto); libro de órdenes con más presión de compra que de venta (+21.2%), a pesar de la caída'>🔴 Precaución</td></tr><tr><td>XVGUSDT</td><td>-22.61%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>+0.17 p.p.</td><td>$13,124,973</td><td class=''>+0.0100% (→ estable)</td><td class=''>32.9</td><td>📉 Bajista</td><td>Soporte a 1.38%</td><td>$0.00256900</td><td>$0.00342800</td><td>0.038%</td><td class='delta-neg'>-12.1% venta</td><td>0.09 p.p.</td><td>🔻 Mínimo del período</td><td class='veredicto-neu' title='en el extremo de su rango reciente (posible agotamiento); estructura de medias móviles bajista (a favor del corto)'>🟡 Vigilar</td></tr><tr><td>TRIAUSDT</td><td>-21.68%</td><td class='delta-neg' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>-0.21 p.p.</td><td>$9,615,119</td><td class=''>+0.0050% (→ estable)</td><td class='delta-neg'>29.6</td><td>📉 Bajista</td><td>Soporte a 10.08%</td><td>$0.00300600</td><td>$0.00433200</td><td>0.030%</td><td class='delta-neg'>-15.4% venta</td><td>0.29 p.p.</td><td></td><td class='veredicto-neu' title='estructura de medias móviles bajista (a favor del corto); RSI en sobreventa (29.6)'>🟡 Vigilar</td></tr><tr><td>PHAUSDT</td><td>-19.85%</td><td class='delta-neg' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>-2.00 p.p.</td><td>$24,770,098</td><td class=''>-0.0016% (→ estable)</td><td class=''>53.1</td><td>➡️ Mixta</td><td>Soporte a 5.02%</td><td>$0.02500000</td><td>$0.03490000</td><td>0.038%</td><td class='delta-neg'>-14.8% venta</td><td>2.08 p.p.</td><td></td><td class='veredicto-neu' title='sin señales relevantes'>🟡 Vigilar</td></tr><tr><td>PONSUSDT</td><td>-20.25%</td><td class='delta-neg' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>-1.50 p.p.</td><td>$246,211,902</td><td class=''>+0.0184% (→ estable)</td><td class=''>51.4</td><td>➡️ Mixta</td><td>Soporte a 8.29%</td><td>$0.52650000</td><td>$0.73170000</td><td>0.035%</td><td class='delta-neg'>-16.7% venta</td><td>1.58 p.p.</td><td></td><td class='veredicto-neu' title='volumen alto (movimiento más confiable)'>🟡 Vigilar</td></tr><tr><td>IDOLUSDT</td><td>-20.98%</td><td class='delta-neg' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>-0.01 p.p.</td><td>$3,019,482</td><td class=''>+0.0050% (→ estable)</td><td class='delta-neg'>25.8</td><td>📉 Bajista</td><td>Soporte a 7.69%</td><td>$0.00876000</td><td>$0.01206000</td><td>0.105%</td><td class='delta-neg'>-24.2% venta</td><td>0.09 p.p.</td><td></td><td class='veredicto-neu' title='estructura de medias móviles bajista (a favor del corto); RSI en sobreventa (25.8); libro de órdenes confirma presión de venta (-24.2%); volumen relativamente bajo (menos confiable)'>🟡 Vigilar</td></tr><tr><td>HEIUSDT</td><td>-20.20%</td><td class='delta-neg' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>-0.16 p.p.</td><td>$9,875,980</td><td class=''>-0.0289% (→ estable)</td><td class=''>42.4</td><td>➡️ Mixta</td><td>Soporte a 15.29%</td><td>$0.09413000</td><td>$0.14117000</td><td>0.018%</td><td class='delta-pos'>+7.8% compra</td><td>0.24 p.p.</td><td></td><td class='veredicto-neu' title='sin señales relevantes'>🟡 Vigilar</td></tr><tr><td>我踏马来了USDT</td><td>-20.14%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>+0.17 p.p.</td><td>$3,302,938</td><td class=''>+0.0050% (→ estable)</td><td class='delta-neg'>17.0</td><td>📉 Bajista</td><td>Soporte a 1.45%</td><td>$0.00941200</td><td>$0.01208600</td><td>0.073%</td><td class='delta-neg'>-15.6% venta</td><td>0.09 p.p.</td><td>🔻 Mínimo del período</td><td class='veredicto-riesgo' title='en el extremo de su rango reciente (posible agotamiento); estructura de medias móviles bajista (a favor del corto); RSI en sobreventa (17.0); volumen relativamente bajo (menos confiable)'>🔴 Precaución</td></tr><tr><td>PUMPUSDT</td><td>-19.87%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>+0.31 p.p.</td><td>$369,871,276</td><td class=''>-0.0043% (→ estable)</td><td class=''>39.9</td><td>📉 Bajista</td><td>Soporte a 1.56%</td><td>$0.00377400</td><td>$0.00487700</td><td>0.026%</td><td class='delta-pos'>+1.7% compra</td><td>0.23 p.p.</td><td>🔻 Mínimo del período</td><td class='veredicto-neu' title='en el extremo de su rango reciente (posible agotamiento); estructura de medias móviles bajista (a favor del corto); volumen alto (movimiento más confiable)'>🟡 Vigilar</td></tr><tr><td>BTCUSDT</td><td>-2.09%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>+0.00 p.p.</td><td>$11,511,937,213</td><td class=''>+0.0053% (→ estable)</td><td class=''>41.9</td><td>📉 Bajista</td><td>Soporte a 0.59%</td><td>$76,634.30</td><td>$78,942.10</td><td>0.000%</td><td class='delta-pos'>+66.7% compra</td><td>0.08 p.p.</td><td></td><td class='veredicto-neu' title='estructura de medias móviles bajista (a favor del corto); muy cerca de un nivel clave de soporte (0.59%); libro de órdenes con más presión de compra que de venta (+66.7%), a pesar de la caída; volumen alto (movimiento más confiable)'>🟡 Vigilar</td></tr><tr><td>CHIPUSDT</td><td>-18.05%</td><td class='' title='Cuánto supera (o no) el movimiento de BTC en la misma ventana. ✓ = pasaría el filtro de alertas.'>—</td><td>$23,270,460</td><td class=''>+0.0050% (—)</td><td class=''>43.9</td><td>📉 Bajista</td><td>Soporte a 1.77%</td><td>$0.04616000</td><td>$0.05808000</td><td>0.021%</td><td class='delta-pos'>+34.4% compra</td><td>—</td><td>🔻 Mínimo del período</td><td class='veredicto-riesgo' title='en el extremo de su rango reciente (posible agotamiento); estructura de medias móviles bajista (a favor del corto); libro de órdenes con más presión de compra que de venta (+34.4%), a pesar de la caída'>🔴 Precaución</td></tr></tbody></table>
         </div>
 </div>
 <script>
@@ -107,11 +107,11 @@ let ultimoHoverIdx = undefined;
 const miChart = new Chart(ctx, {
     type: 'line',
     data: {
-        labels: ["2026-09-10 11:46:09"],
+        labels: ["2026-09-10 11:46:09","2026-09-10 11:51:07"],
         datasets: [
 {
                 label: "IOSTUSDT",
-                data: [-44.78],
+                data: [-44.78,-43.72],
                 borderColor: "hsl(0, 70%, 45%)",
                 backgroundColor: "hsl(0, 70%, 45%)",
                 spanGaps: true,
@@ -123,7 +123,7 @@ const miChart = new Chart(ctx, {
             },
 {
                 label: "龙虾USDT",
-                data: [-38.63],
+                data: [-38.63,-37.98],
                 borderColor: "hsl(47, 70%, 45%)",
                 backgroundColor: "hsl(47, 70%, 45%)",
                 spanGaps: true,
@@ -135,7 +135,7 @@ const miChart = new Chart(ctx, {
             },
 {
                 label: "BEATUSDT",
-                data: [-34.19],
+                data: [-34.19,-33.28],
                 borderColor: "hsl(94, 70%, 45%)",
                 backgroundColor: "hsl(94, 70%, 45%)",
                 spanGaps: true,
@@ -147,7 +147,7 @@ const miChart = new Chart(ctx, {
             },
 {
                 label: "VELVETUSDT",
-                data: [-32.71],
+                data: [-32.71,-32.89],
                 borderColor: "hsl(141, 70%, 45%)",
                 backgroundColor: "hsl(141, 70%, 45%)",
                 spanGaps: true,
@@ -159,7 +159,7 @@ const miChart = new Chart(ctx, {
             },
 {
                 label: "LABUSDT",
-                data: [-29.4],
+                data: [-29.4,-28.98],
                 borderColor: "hsl(188, 70%, 45%)",
                 backgroundColor: "hsl(188, 70%, 45%)",
                 spanGaps: true,
@@ -171,7 +171,7 @@ const miChart = new Chart(ctx, {
             },
 {
                 label: "RVNUSDT",
-                data: [-25.49],
+                data: [-25.49,-25.02],
                 borderColor: "hsl(235, 70%, 45%)",
                 backgroundColor: "hsl(235, 70%, 45%)",
                 spanGaps: true,
@@ -183,7 +183,7 @@ const miChart = new Chart(ctx, {
             },
 {
                 label: "XVGUSDT",
-                data: [-22.52],
+                data: [-22.52,-22.61],
                 borderColor: "hsl(282, 70%, 45%)",
                 backgroundColor: "hsl(282, 70%, 45%)",
                 spanGaps: true,
@@ -195,7 +195,7 @@ const miChart = new Chart(ctx, {
             },
 {
                 label: "TRIAUSDT",
-                data: [-21.97],
+                data: [-21.97,-21.68],
                 borderColor: "hsl(329, 70%, 45%)",
                 backgroundColor: "hsl(329, 70%, 45%)",
                 spanGaps: true,
@@ -207,7 +207,7 @@ const miChart = new Chart(ctx, {
             },
 {
                 label: "PHAUSDT",
-                data: [-21.93],
+                data: [-21.93,-19.85],
                 borderColor: "hsl(16, 70%, 45%)",
                 backgroundColor: "hsl(16, 70%, 45%)",
                 spanGaps: true,
@@ -219,7 +219,7 @@ const miChart = new Chart(ctx, {
             },
 {
                 label: "PONSUSDT",
-                data: [-21.83],
+                data: [-21.83,-20.25],
                 borderColor: "hsl(63, 70%, 45%)",
                 backgroundColor: "hsl(63, 70%, 45%)",
                 spanGaps: true,
@@ -231,7 +231,7 @@ const miChart = new Chart(ctx, {
             },
 {
                 label: "IDOLUSDT",
-                data: [-21.07],
+                data: [-21.07,-20.98],
                 borderColor: "hsl(110, 70%, 45%)",
                 backgroundColor: "hsl(110, 70%, 45%)",
                 spanGaps: true,
@@ -243,7 +243,7 @@ const miChart = new Chart(ctx, {
             },
 {
                 label: "HEIUSDT",
-                data: [-20.44],
+                data: [-20.44,-20.2],
                 borderColor: "hsl(157, 70%, 45%)",
                 backgroundColor: "hsl(157, 70%, 45%)",
                 spanGaps: true,
@@ -255,7 +255,7 @@ const miChart = new Chart(ctx, {
             },
 {
                 label: "我踏马来了USDT",
-                data: [-20.05],
+                data: [-20.05,-20.14],
                 borderColor: "hsl(204, 70%, 45%)",
                 backgroundColor: "hsl(204, 70%, 45%)",
                 spanGaps: true,
@@ -267,7 +267,7 @@ const miChart = new Chart(ctx, {
             },
 {
                 label: "PUMPUSDT",
-                data: [-19.64],
+                data: [-19.64,-19.87],
                 borderColor: "hsl(251, 70%, 45%)",
                 backgroundColor: "hsl(251, 70%, 45%)",
                 spanGaps: true,
@@ -279,9 +279,21 @@ const miChart = new Chart(ctx, {
             },
 {
                 label: "ONGUSDT",
-                data: [-17.88],
+                data: [-17.88,null],
                 borderColor: "hsl(298, 70%, 45%)",
                 backgroundColor: "hsl(298, 70%, 45%)",
+                spanGaps: true,
+                tension: 0.2,
+                pointRadius: 2,
+                pointHitRadius: 8,
+                borderWidth: 2,
+                hidden: true
+            },
+{
+                label: "BTCUSDT",
+                data: [-2.17,-2.09],
+                borderColor: "hsl(345, 70%, 45%)",
+                backgroundColor: "hsl(345, 70%, 45%)",
                 spanGaps: true,
                 tension: 0.2,
                 pointRadius: 2,
@@ -290,10 +302,10 @@ const miChart = new Chart(ctx, {
                 hidden: false
             },
 {
-                label: "BTCUSDT",
-                data: [-2.17],
-                borderColor: "hsl(345, 70%, 45%)",
-                backgroundColor: "hsl(345, 70%, 45%)",
+                label: "CHIPUSDT",
+                data: [null,-18.05],
+                borderColor: "hsl(32, 70%, 45%)",
+                backgroundColor: "hsl(32, 70%, 45%)",
                 spanGaps: true,
                 tension: 0.2,
                 pointRadius: 2,
